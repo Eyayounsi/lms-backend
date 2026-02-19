@@ -5,11 +5,11 @@ import com.elearning.ProjetPfe.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = "*", methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE, RequestMethod.OPTIONS})
 public class AuthController {
 
     @Autowired
@@ -31,9 +31,9 @@ public class AuthController {
         return ResponseEntity.ok("Token de réinitialisation généré. Vérifiez la console!");
     }
 
-    @PostMapping("/reset-password")
-    public ResponseEntity<String> resetPassword(@Valid @RequestBody ResetPasswordDto request) {
-        userService.resetPassword(request);
+    @PostMapping("/verify-otp")
+    public ResponseEntity<String> verifyOtpAndResetPassword(@Valid @RequestBody VerifyOtpDto request) {
+        userService.verifyOtpAndResetPassword(request);
         return ResponseEntity.ok("Mot de passe réinitialisé avec succès");
     }
 
@@ -42,9 +42,18 @@ public class AuthController {
         return ResponseEntity.ok("API d'authentification fonctionne!");
     }
 
-    // NOUVEAU: Ajouter un rôle à un utilisateur existant
     @PostMapping("/add-role")
     public ResponseEntity<AuthResponseDto> addRole(@Valid @RequestBody AddRoleDto request) {
         return ResponseEntity.ok(userService.addUserRole(request));
+    }
+
+    // ✅ NOUVEAU: Méthode Logout
+    @PostMapping("/logout")
+    public ResponseEntity<String> logout() {
+        // Efface le contexte de sécurité côté serveur
+        SecurityContextHolder.clearContext();
+
+        // Retourne un message de confirmation
+        return ResponseEntity.ok("Déconnexion réussie. Veuillez supprimer le token du côté client.");
     }
 }

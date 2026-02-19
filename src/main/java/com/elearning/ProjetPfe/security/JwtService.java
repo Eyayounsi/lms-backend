@@ -27,6 +27,19 @@ public class JwtService {
         return extractClaim(token, Claims::getSubject);
     }
 
+    /**
+     * Méthode SÛRE pour extraire le username
+     * Retourne null au lieu de lancer une exception si le token est invalide/expiré
+     */
+    public String extractUsernameIfValid(String token) {
+        try {
+            return extractUsername(token);
+        } catch (Exception e) {
+            // Token expiré, invalide ou corrompu - retourner null
+            return null;
+        }
+    }
+
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
         final Claims claims = extractAllClaims(token);
         return claimsResolver.apply(claims);

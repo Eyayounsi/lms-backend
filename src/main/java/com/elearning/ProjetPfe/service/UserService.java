@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -119,25 +120,56 @@ public class UserService {
 
         return response;
     }
-
-    // 3. MOT DE PASSE OUBLIÉ
+    // 3. MOT DE PASSE OUBLIÉ - ENVOYER OTP
     @Transactional
     public void forgotPassword(ForgotPasswordDto request) {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("Email non trouvé"));
 
-        // Générer token unique
-        String token = UUID.randomUUID().toString();
-        user.setResetToken(token);
-        user.setResetTokenExpiry(LocalDateTime.now().plusHours(1));
+        // Générer un code OTP à 6 chiffres
+        String otpCode = String.format("%06d", new Random().nextInt(999999));
+
+        // Sauvegarder l'OTP et son expiration (10 minutes)
+        user.setOtpCode(otpCode);
+        user.setOtpExpiry(LocalDateTime.now().plusMinutes(10));
         userRepository.save(user);
 
-        // Afficher le token dans la console
+        // Envoyer l'OTP par email
+        emailService.sendOtpEmail(user.getEmail(), otpCode);
+
         System.out.println("==========================================");
-        System.out.println("TOKEN DE RÉINITIALISATION: " + token);
+        System.out.println("CODE OTP ENVOYÉ: " + otpCode);
         System.out.println("Email: " + user.getEmail());
         System.out.println("==========================================");
     }
+
+    // 4. VÉRIFIER OTP ET RÉINITIALISER MOT DE PASSE
+    @Transactional
+    public void verifyOtpAndResetPassword(VerifyOtpDto request) {
+        // Vérifier si l'email existe avec ce code OTP
+        User user = userRepository.findByEmailAndOtpCode(request.getEmail(), request.getOtpCode())
+                .orElseThrow(() -> new RuntimeException("Code OTP invalide pour cet email"));
+
+        // Vérifier si l'OTP a expiré
+        if (user.getOtpExpiry() == null || user.getOtpExpiry().isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("Le code OTP a expiré. Veuillez demander un nouveau code.");
+        }
+
+        // Réinitialiser le mot de passe
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+
+        // Effacer l'OTP utilisé
+        user.setOtpCode(null);
+        user.setOtpExpiry(null);
+
+        userRepository.save(user);
+    }
+
+    // N'OUBLIE PAS D'AJOUTER L'AUTOWIRED POUR EMAILSERVICE
+    @Autowired
+    private EmailService emailService;
+
+
 
     // 4. RÉINITIALISER MOT DE PASSE
     @Transactional

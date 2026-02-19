@@ -49,6 +49,7 @@ public class SecurityConfig {
                 // ⚠️ IMPORTANT: CSRF doit être désactivé pour les API REST
                 .csrf(csrf -> csrf.disable())
 
+
                 .authorizeHttpRequests(auth -> auth
                         // 🔓 Permettre l'accès à /api/auth/** sans authentification
                         .requestMatchers("/api/auth/**").permitAll()
