@@ -1,10 +1,11 @@
 package com.elearning.ProjetPfe.config;
 
-import com.elearning.ProjetPfe.security.JwtFilter;
-import com.elearning.ProjetPfe.repository.UserRepository;
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -18,6 +19,12 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import com.elearning.ProjetPfe.repository.UserRepository;
+import com.elearning.ProjetPfe.security.JwtFilter;
 
 @Configuration
 @EnableWebSecurity
@@ -46,13 +53,20 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 // ⚠️ IMPORTANT: CSRF doit être désactivé pour les API REST
                 .csrf(csrf -> csrf.disable())
 
 
                 .authorizeHttpRequests(auth -> auth
-                        // 🔓 Permettre l'accès à /api/auth/** sans authentification
+                        // 🔓 Preflight CORS (OPTIONS) : toujours autoriser
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        // 🔓 Endpoints publics
                         .requestMatchers("/api/auth/**").permitAll()
+                        // 🔒 Endpoints réservés au super-admin
+                        .requestMatchers("/api/superadmin/**").hasAuthority("SUPERADMIN")
+                        // 🔒 Endpoints réservés à l'admin
+                        .requestMatchers("/api/admin/**").hasAuthority("ADMIN")
                         // 🔒 Tout le reste nécessite une authentification
                         .anyRequest().authenticated()
                 )
@@ -63,6 +77,19 @@ public class SecurityConfig {
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(List.of("http://localhost:4200"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
     }
 
     @Bean

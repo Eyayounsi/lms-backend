@@ -1,16 +1,23 @@
 package com.elearning.ProjetPfe.entity;
 
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
-import java.util.HashSet;
-import java.util.stream.Collectors;
 
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "users")
@@ -38,11 +45,9 @@ public class User implements UserDetails {
     @Column(name = "otp_expiry")
     private LocalDateTime otpExpiry;
 
-    @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
-    @Column(name = "role")
     @Enumerated(EnumType.STRING)
-    private Set<Role> roles = new HashSet<>();
+    @Column(name = "role", nullable = false, length = 30)
+    private Role role;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "account_status", nullable = false)
@@ -67,17 +72,14 @@ public class User implements UserDetails {
     private LocalDateTime updatedAt;
 
     // Constructeurs
-    public User() {
-        this.roles = new HashSet<>();
-    }
+    public User() {}
 
     public User(String fullName, String email, String password, String phone, Role role) {
         this.fullName = fullName;
         this.email = email;
         this.password = password;
         this.phone = phone;
-        this.roles = new HashSet<>();
-        this.roles.add(role);
+        this.role = role;
         this.accountStatus = AccountStatus.ACTIVE;
         this.emailVerified = false;
         this.enabled = true;
@@ -110,11 +112,8 @@ public class User implements UserDetails {
     public String getPhone() { return phone; }
     public void setPhone(String phone) { this.phone = phone; }
 
-    public Set<Role> getRoles() { return roles; }
-    public void setRoles(Set<Role> roles) { this.roles = roles; }
-
-    public void addRole(Role role) { this.roles.add(role); }
-    public boolean hasRole(Role role) { return this.roles.contains(role); }
+    public Role getRole() { return role; }
+    public void setRole(Role role) { this.role = role; }
 
     public AccountStatus getAccountStatus() { return accountStatus; }
     public void setAccountStatus(AccountStatus accountStatus) { this.accountStatus = accountStatus; }
@@ -145,9 +144,9 @@ public class User implements UserDetails {
     // UserDetails methods
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return roles.stream()
-                .map(role -> new SimpleGrantedAuthority("ROLE_" + role.name()))
-                .collect(Collectors.toList());
+        // On retourne directement le nom du rôle sans préfixe ROLE_
+        // SecurityConfig utilise hasAuthority("ADMIN") qui correspond exactement.
+        return List.of(new SimpleGrantedAuthority(role.name()));
     }
 
     @Override
@@ -165,5 +164,5 @@ public class User implements UserDetails {
     public boolean isCredentialsNonExpired() { return true; }
 
     @Override
-    public boolean isEnabled() { return enabled; }
+    public boolean isEnabled() { return accountStatus == AccountStatus.ACTIVE; }
 }

@@ -5,5 +5,6 @@ public enum Role {
     STUDENT,
     INSTRUCTOR,
     ADMIN,
-    RECRUITER
+    RECRUITER,
+    SUPERADMIN
 }

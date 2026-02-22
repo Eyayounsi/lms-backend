@@ -1,11 +1,10 @@
 package com.elearning.ProjetPfe.service;
 
-import com.elearning.ProjetPfe.dto.*;
-import com.elearning.ProjetPfe.entity.AccountStatus;
-import com.elearning.ProjetPfe.entity.Role;
-import com.elearning.ProjetPfe.entity.User;
-import com.elearning.ProjetPfe.repository.UserRepository;
-import com.elearning.ProjetPfe.security.JwtService;
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Random;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -13,12 +12,21 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Random;
-import java.util.UUID;
-import java.util.stream.Collectors;
+import com.elearning.ProjetPfe.dto.AddRoleDto;
+import com.elearning.ProjetPfe.dto.AuthResponseDto;
+import com.elearning.ProjetPfe.dto.ChangePasswordDto;
+import com.elearning.ProjetPfe.dto.ForgotPasswordDto;
+import com.elearning.ProjetPfe.dto.LoginDto;
+import com.elearning.ProjetPfe.dto.RegisterDto;
+import com.elearning.ProjetPfe.dto.ResetPasswordDto;
+import com.elearning.ProjetPfe.dto.UpdateProfileDto;
+import com.elearning.ProjetPfe.dto.UserProfileDto;
+import com.elearning.ProjetPfe.dto.VerifyOtpDto;
+import com.elearning.ProjetPfe.entity.AccountStatus;
+import com.elearning.ProjetPfe.entity.Role;
+import com.elearning.ProjetPfe.entity.User;
+import com.elearning.ProjetPfe.repository.UserRepository;
+import com.elearning.ProjetPfe.security.JwtService;
 
 @Service
 public class UserService {
@@ -45,6 +53,12 @@ public class UserService {
 
         // Définir le rôle par défaut
         String roleStr = request.getRole() != null ? request.getRole().toUpperCase() : "STUDENT";
+
+        // Sécurité : interdire l'inscription en tant que SUPERADMIN via l'API publique
+        if ("SUPERADMIN".equals(roleStr)) {
+            throw new RuntimeException("Le rôle SUPERADMIN ne peut pas être attribué lors de l'inscription");
+        }
+
         Role role;
         try {
             role = Role.valueOf(roleStr);
@@ -58,7 +72,7 @@ public class UserService {
         user.setEmail(request.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setPhone(request.getPhone());
-        user.addRole(role);
+        user.setRole(role);
         user.setAccountStatus(AccountStatus.ACTIVE);
         user.setEmailVerified(false);
 
@@ -67,7 +81,7 @@ public class UserService {
         // Générer le token
         Map<String, Object> claims = new HashMap<>();
         claims.put("id", user.getId());
-        claims.put("roles", user.getRoles().stream().map(Role::name).collect(Collectors.toList()));
+        claims.put("role", user.getRole().name());
         claims.put("email", user.getEmail());
         String token = jwtService.generateToken(claims, user);
 
@@ -76,7 +90,7 @@ public class UserService {
         response.setId(user.getId());
         response.setEmail(user.getEmail());
         response.setFullName(user.getFullName());
-        response.setRole(user.getRoles().toString());
+        response.setRole(user.getRole().name());
         response.setAccountStatus(user.getAccountStatus().name());
         response.setEmailVerified(user.getEmailVerified());
         response.setMessage("Inscription réussie");
@@ -87,24 +101,27 @@ public class UserService {
     // 2. CONNEXION
     @Transactional
     public AuthResponseDto login(LoginDto request) {
-        // Authentifier
+        // Vérifier d'abord si le compte existe et est accessible
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new RuntimeException("Email ou mot de passe incorrect"));
+
+        // Vérifier le statut AVANT d'authentifier (message clair pour l'utilisateur)
+        if (user.getAccountStatus() == AccountStatus.BLOCKED) {
+            throw new RuntimeException("Votre compte a été bloqué par l'administrateur. Contactez le support.");
+        }
+        if (user.getAccountStatus() != AccountStatus.ACTIVE) {
+            throw new RuntimeException("Votre compte n'est pas actif. Contactez l'administrateur.");
+        }
+
+        // Authentifier (vérification du mot de passe)
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
         );
 
-        // Récupérer l'utilisateur
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("Email ou mot de passe incorrect"));
-
-        // Vérifier si le compte est actif
-        if (user.getAccountStatus() != AccountStatus.ACTIVE) {
-            throw new RuntimeException("Votre compte n'est pas actif. Statut: " + user.getAccountStatus());
-        }
-
         // Générer le token
         Map<String, Object> claims = new HashMap<>();
         claims.put("id", user.getId());
-        claims.put("roles", user.getRoles().stream().map(Role::name).collect(Collectors.toList()));
+        claims.put("role", user.getRole().name());
         claims.put("email", user.getEmail());
         String token = jwtService.generateToken(claims, user);
 
@@ -113,7 +130,7 @@ public class UserService {
         response.setId(user.getId());
         response.setEmail(user.getEmail());
         response.setFullName(user.getFullName());
-        response.setRole(user.getRoles().toString());
+        response.setRole(user.getRole().name());
         response.setAccountStatus(user.getAccountStatus().name());
         response.setEmailVerified(user.getEmailVerified());
         response.setMessage("Connexion réussie");
@@ -188,6 +205,94 @@ public class UserService {
         userRepository.save(user);
     }
 
+    // ─── GESTION DE PROFIL ────────────────────────────────────────────────────
+
+    // 5a. GET PROFIL : retourner les données de l'utilisateur connecté
+    public UserProfileDto getProfile(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+
+        return new UserProfileDto(
+                user.getId(),
+                user.getFullName(),
+                user.getEmail(),
+                user.getPhone(),
+                user.getRole().name(),
+                user.getAccountStatus().name()
+        );
+    }
+
+    // 5b. UPDATE PROFIL : modifier nom, téléphone, email
+    @Transactional
+    public UserProfileDto updateProfile(String currentEmail, UpdateProfileDto request) {
+        User user = userRepository.findByEmail(currentEmail)
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+
+        // Mettre à jour fullName si fourni
+        if (request.getFullName() != null && !request.getFullName().isBlank()) {
+            user.setFullName(request.getFullName());
+        }
+
+        // Mettre à jour phone si fourni
+        if (request.getPhone() != null) {
+            user.setPhone(request.getPhone());
+        }
+
+        // Mettre à jour email si fourni et différent
+        if (request.getEmail() != null && !request.getEmail().isBlank()
+                && !request.getEmail().equalsIgnoreCase(currentEmail)) {
+            // Vérifier que le nouvel email n'est pas déjà utilisé
+            if (userRepository.existsByEmail(request.getEmail())) {
+                throw new RuntimeException("Cet email est déjà utilisé par un autre compte");
+            }
+            user.setEmail(request.getEmail());
+        }
+
+        user = userRepository.save(user);
+
+        return new UserProfileDto(
+                user.getId(),
+                user.getFullName(),
+                user.getEmail(),
+                user.getPhone(),
+                user.getRole().name(),
+                user.getAccountStatus().name()
+        );
+    }
+
+    // 5c. CHANGER MOT DE PASSE : vérifier l'ancien avant d'accepter le nouveau
+    @Transactional
+    public void changePassword(String email, ChangePasswordDto request) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+
+        // Vérifier que l'ancien mot de passe est correct
+        // passwordEncoder.matches() compare le mot de passe en clair avec le hash en base
+        if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
+            throw new RuntimeException("Ancien mot de passe incorrect");
+        }
+
+        // Encoder et sauvegarder le nouveau mot de passe
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+    }
+
+    // 5d. SUPPRIMER COMPTE : demande confirmation du mot de passe pour la sécurité
+    @Transactional
+    public void deleteAccount(String email, String password) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+
+        // Vérifier le mot de passe avant suppression (sécurité critique)
+        if (!passwordEncoder.matches(password, user.getPassword())) {
+            throw new RuntimeException("Mot de passe incorrect. Suppression refusée.");
+        }
+
+        userRepository.delete(user);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+
     // 5. AJOUTER LE RÔLE INSTRUCTEUR À UN ÉTUDIANT (SEULEMENT STUDENT → STUDENT + INSTRUCTOR)
     @Transactional
     public AuthResponseDto addUserRole(AddRoleDto request) {
@@ -210,23 +315,18 @@ public class UserService {
         }
 
         // Vérifier si l'utilisateur est bien un étudiant
-        if (!user.hasRole(Role.STUDENT)) {
+        if (user.getRole() != Role.STUDENT) {
             throw new RuntimeException("Seuls les étudiants peuvent devenir instructeurs");
         }
 
-        // Vérifier si l'utilisateur a déjà le rôle INSTRUCTOR
-        if (user.hasRole(Role.INSTRUCTOR)) {
-            throw new RuntimeException("Vous êtes déjà instructeur");
-        }
-
-        // Ajouter le rôle INSTRUCTOR (le rôle STUDENT est conservé)
-        user.addRole(Role.INSTRUCTOR);
+        // Mettre à jour le rôle vers INSTRUCTOR
+        user.setRole(Role.INSTRUCTOR);
         user = userRepository.save(user);
 
-        // Générer un nouveau token avec les deux rôles
+        // Générer un nouveau token avec le nouveau rôle
         Map<String, Object> claims = new HashMap<>();
         claims.put("id", user.getId());
-        claims.put("roles", user.getRoles().stream().map(Role::name).collect(Collectors.toList()));
+        claims.put("role", user.getRole().name());
         claims.put("email", user.getEmail());
         String token = jwtService.generateToken(claims, user);
 
@@ -236,10 +336,10 @@ public class UserService {
         response.setId(user.getId());
         response.setEmail(user.getEmail());
         response.setFullName(user.getFullName());
-        response.setRole(user.getRoles().toString());
+        response.setRole(user.getRole().name());
         response.setAccountStatus(user.getAccountStatus().name());
         response.setEmailVerified(user.getEmailVerified());
-        response.setMessage("Félicitations! Vous êtes maintenant étudiant et instructeur. Rôles actuels: " + user.getRoles());
+        response.setMessage("Félicitations! Vous êtes maintenant instructeur. Rôle actuel: " + user.getRole().name());
 
         return response;
     }
