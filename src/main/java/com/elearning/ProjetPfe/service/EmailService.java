@@ -26,4 +26,16 @@ public class EmailService {
 
         mailSender.send(message);
     }
+
+    /**
+     * Méthode générique pour envoyer un email avec sujet et corps personnalisés.
+     * Utilisée pour notifier l'instructor quand un cours est accepté/rejeté.
+     */
+    public void sendEmail(String toEmail, String subject, String body) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(toEmail);
+        message.setSubject(subject);
+        message.setText(body);
+        mailSender.send(message);
+    }
 }

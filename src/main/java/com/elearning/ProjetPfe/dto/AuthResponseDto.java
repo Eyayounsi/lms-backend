@@ -8,6 +8,7 @@ public class AuthResponseDto {
     private String role;
     private String accountStatus;
     private Boolean emailVerified;
+    private Boolean firstLogin;
     private String message;
 
     // Constructeurs
@@ -46,6 +47,9 @@ public class AuthResponseDto {
 
     public Boolean getEmailVerified() { return emailVerified; }
     public void setEmailVerified(Boolean emailVerified) { this.emailVerified = emailVerified; }
+
+    public Boolean getFirstLogin() { return firstLogin; }
+    public void setFirstLogin(Boolean firstLogin) { this.firstLogin = firstLogin; }
 
     public String getMessage() { return message; }
     public void setMessage(String message) { this.message = message; }

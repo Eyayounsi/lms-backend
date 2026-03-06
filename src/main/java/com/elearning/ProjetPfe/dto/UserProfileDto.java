@@ -13,6 +13,21 @@ public class UserProfileDto {
     private String role;
     private String accountStatus;
 
+    // Champs étendus
+    private String avatarPath;
+    private String bio;
+    private String aboutMe;
+    private String designation;
+    private String address;
+    private String facebookUrl;
+    private String instagramUrl;
+    private String twitterUrl;
+    private String youtubeUrl;
+    private String linkedinUrl;
+    private String educationJson;
+    private String experienceJson;
+    private Boolean shareWithRecruiters;
+
     // Constructeur
     public UserProfileDto() {}
 
@@ -44,4 +59,43 @@ public class UserProfileDto {
 
     public String getAccountStatus() { return accountStatus; }
     public void setAccountStatus(String accountStatus) { this.accountStatus = accountStatus; }
+
+    public String getAvatarPath() { return avatarPath; }
+    public void setAvatarPath(String avatarPath) { this.avatarPath = avatarPath; }
+
+    public String getBio() { return bio; }
+    public void setBio(String bio) { this.bio = bio; }
+
+    public String getAboutMe() { return aboutMe; }
+    public void setAboutMe(String aboutMe) { this.aboutMe = aboutMe; }
+
+    public String getDesignation() { return designation; }
+    public void setDesignation(String designation) { this.designation = designation; }
+
+    public String getAddress() { return address; }
+    public void setAddress(String address) { this.address = address; }
+
+    public String getFacebookUrl() { return facebookUrl; }
+    public void setFacebookUrl(String facebookUrl) { this.facebookUrl = facebookUrl; }
+
+    public String getInstagramUrl() { return instagramUrl; }
+    public void setInstagramUrl(String instagramUrl) { this.instagramUrl = instagramUrl; }
+
+    public String getTwitterUrl() { return twitterUrl; }
+    public void setTwitterUrl(String twitterUrl) { this.twitterUrl = twitterUrl; }
+
+    public String getYoutubeUrl() { return youtubeUrl; }
+    public void setYoutubeUrl(String youtubeUrl) { this.youtubeUrl = youtubeUrl; }
+
+    public String getLinkedinUrl() { return linkedinUrl; }
+    public void setLinkedinUrl(String linkedinUrl) { this.linkedinUrl = linkedinUrl; }
+
+    public String getEducationJson() { return educationJson; }
+    public void setEducationJson(String educationJson) { this.educationJson = educationJson; }
+
+    public String getExperienceJson() { return experienceJson; }
+    public void setExperienceJson(String experienceJson) { this.experienceJson = experienceJson; }
+
+    public Boolean getShareWithRecruiters() { return shareWithRecruiters; }
+    public void setShareWithRecruiters(Boolean shareWithRecruiters) { this.shareWithRecruiters = shareWithRecruiters; }
 }

@@ -1,12 +1,17 @@
 package com.elearning.ProjetPfe.controller;
 
 import com.elearning.ProjetPfe.dto.*;
+import com.elearning.ProjetPfe.entity.User;
 import com.elearning.ProjetPfe.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -50,10 +55,22 @@ public class AuthController {
     // ✅ NOUVEAU: Méthode Logout
     @PostMapping("/logout")
     public ResponseEntity<String> logout() {
-        // Efface le contexte de sécurité côté serveur
         SecurityContextHolder.clearContext();
-
-        // Retourne un message de confirmation
         return ResponseEntity.ok("Déconnexion réussie. Veuillez supprimer le token du côté client.");
+    }
+
+    // ✅ Profil utilisateur courant — utile pour vérifier le rôle côté client
+    @GetMapping("/me")
+    public ResponseEntity<?> me(@AuthenticationPrincipal User user) {
+        if (user == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Non authentifié"));
+        }
+        Map<String, Object> userData = new HashMap<>();
+        userData.put("id", user.getId());
+        userData.put("email", user.getEmail());
+        userData.put("fullName", user.getFullName());
+        userData.put("role", user.getRole().name());
+        userData.put("accountStatus", user.getAccountStatus().name());
+        return ResponseEntity.ok(userData);
     }
 }

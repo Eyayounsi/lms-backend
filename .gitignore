@@ -36,3 +36,15 @@ target/
 *.iml
 *.log
 application.properties
+ # Spring Boot secrets
+ src/main/resources/application.properties
+ src/main/resources/application.properties.bak
+
+ # Upload files
+ uploads/
+
+ # Build
+ target/
+
+ # Logs
+ *.log

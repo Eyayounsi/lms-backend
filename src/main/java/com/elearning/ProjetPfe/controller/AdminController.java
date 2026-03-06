@@ -114,6 +114,11 @@ public class AdminController {
             return ResponseEntity.badRequest().body("Vous ne pouvez pas supprimer votre propre compte.");
         }
 
+        // Sécurité : un admin ne peut pas supprimer un autre admin (seul SUPERADMIN peut)
+        if (target.getRole() == Role.ADMIN) {
+            return ResponseEntity.status(403).body("Un admin ne peut pas supprimer un autre admin. Contactez le SUPERADMIN.");
+        }
+
         userRepository.delete(target);
         return ResponseEntity.ok("Utilisateur supprimé avec succès.");
     }

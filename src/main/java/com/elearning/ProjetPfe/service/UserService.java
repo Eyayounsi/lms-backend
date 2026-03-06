@@ -25,7 +25,13 @@ import com.elearning.ProjetPfe.dto.VerifyOtpDto;
 import com.elearning.ProjetPfe.entity.AccountStatus;
 import com.elearning.ProjetPfe.entity.Role;
 import com.elearning.ProjetPfe.entity.User;
+import com.elearning.ProjetPfe.repository.CartItemRepository;
+import com.elearning.ProjetPfe.repository.CourseProgressRepository;
+import com.elearning.ProjetPfe.repository.EnrollmentRepository;
+import com.elearning.ProjetPfe.repository.LessonProgressRepository;
+import com.elearning.ProjetPfe.repository.ReviewRepository;
 import com.elearning.ProjetPfe.repository.UserRepository;
+import com.elearning.ProjetPfe.repository.WishlistItemRepository;
 import com.elearning.ProjetPfe.security.JwtService;
 
 @Service
@@ -33,6 +39,24 @@ public class UserService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private EnrollmentRepository enrollmentRepository;
+
+    @Autowired
+    private CartItemRepository cartItemRepository;
+
+    @Autowired
+    private WishlistItemRepository wishlistItemRepository;
+
+    @Autowired
+    private ReviewRepository reviewRepository;
+
+    @Autowired
+    private LessonProgressRepository lessonProgressRepository;
+
+    @Autowired
+    private CourseProgressRepository courseProgressRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -75,6 +99,10 @@ public class UserService {
         user.setRole(role);
         user.setAccountStatus(AccountStatus.ACTIVE);
         user.setEmailVerified(false);
+        // Les comptes RECRUITER créés par l'admin doivent changer leur mot de passe dès la première connexion
+        if (role == Role.RECRUITER) {
+            user.setFirstLogin(true);
+        }
 
         user = userRepository.save(user);
 
@@ -93,6 +121,7 @@ public class UserService {
         response.setRole(user.getRole().name());
         response.setAccountStatus(user.getAccountStatus().name());
         response.setEmailVerified(user.getEmailVerified());
+        response.setFirstLogin(user.getFirstLogin() != null && user.getFirstLogin());
         response.setMessage("Inscription réussie");
 
         return response;
@@ -133,6 +162,7 @@ public class UserService {
         response.setRole(user.getRole().name());
         response.setAccountStatus(user.getAccountStatus().name());
         response.setEmailVerified(user.getEmailVerified());
+        response.setFirstLogin(user.getFirstLogin() != null && user.getFirstLogin());
         response.setMessage("Connexion réussie");
 
         return response;
@@ -212,7 +242,7 @@ public class UserService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
-        return new UserProfileDto(
+        UserProfileDto dto = new UserProfileDto(
                 user.getId(),
                 user.getFullName(),
                 user.getEmail(),
@@ -220,6 +250,21 @@ public class UserService {
                 user.getRole().name(),
                 user.getAccountStatus().name()
         );
+        // Champs étendus
+        dto.setAvatarPath(user.getAvatarPath());
+        dto.setBio(user.getBio());
+        dto.setAboutMe(user.getAboutMe());
+        dto.setDesignation(user.getDesignation());
+        dto.setAddress(user.getAddress());
+        dto.setFacebookUrl(user.getFacebookUrl());
+        dto.setInstagramUrl(user.getInstagramUrl());
+        dto.setTwitterUrl(user.getTwitterUrl());
+        dto.setYoutubeUrl(user.getYoutubeUrl());
+        dto.setLinkedinUrl(user.getLinkedinUrl());
+        dto.setEducationJson(user.getEducationJson());
+        dto.setExperienceJson(user.getExperienceJson());
+        dto.setShareWithRecruiters(user.getShareWithRecruiters());
+        return dto;
     }
 
     // 5b. UPDATE PROFIL : modifier nom, téléphone, email
@@ -248,16 +293,22 @@ public class UserService {
             user.setEmail(request.getEmail());
         }
 
+        // Champs étendus
+        if (request.getBio() != null) user.setBio(request.getBio());
+        if (request.getAboutMe() != null) user.setAboutMe(request.getAboutMe());
+        if (request.getDesignation() != null) user.setDesignation(request.getDesignation());
+        if (request.getAddress() != null) user.setAddress(request.getAddress());
+        if (request.getFacebookUrl() != null) user.setFacebookUrl(request.getFacebookUrl());
+        if (request.getInstagramUrl() != null) user.setInstagramUrl(request.getInstagramUrl());
+        if (request.getTwitterUrl() != null) user.setTwitterUrl(request.getTwitterUrl());
+        if (request.getYoutubeUrl() != null) user.setYoutubeUrl(request.getYoutubeUrl());
+        if (request.getLinkedinUrl() != null) user.setLinkedinUrl(request.getLinkedinUrl());
+        if (request.getEducationJson() != null) user.setEducationJson(request.getEducationJson());
+        if (request.getExperienceJson() != null) user.setExperienceJson(request.getExperienceJson());
+
         user = userRepository.save(user);
 
-        return new UserProfileDto(
-                user.getId(),
-                user.getFullName(),
-                user.getEmail(),
-                user.getPhone(),
-                user.getRole().name(),
-                user.getAccountStatus().name()
-        );
+        return getProfile(user.getEmail());
     }
 
     // 5c. CHANGER MOT DE PASSE : vérifier l'ancien avant d'accepter le nouveau
@@ -272,8 +323,26 @@ public class UserService {
             throw new RuntimeException("Ancien mot de passe incorrect");
         }
 
+        // Vérifier que le nouveau mot de passe est différent de l'ancien
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+            throw new RuntimeException("Le nouveau mot de passe ne peut pas être identique à l'ancien");
+        }
+
         // Encoder et sauvegarder le nouveau mot de passe
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        // Si c'était la première connexion d'un RECRUITER, marquer comme complet
+        if (Boolean.TRUE.equals(user.getFirstLogin())) {
+            user.setFirstLogin(false);
+        }
+        userRepository.save(user);
+    }
+
+    // 5e. PARTAGE PROFIL AVEC RECRUTEURS
+    @Transactional
+    public void updateShareProfile(String email, boolean share) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+        user.setShareWithRecruiters(share);
         userRepository.save(user);
     }
 
@@ -287,6 +356,17 @@ public class UserService {
         if (!passwordEncoder.matches(password, user.getPassword())) {
             throw new RuntimeException("Mot de passe incorrect. Suppression refusée.");
         }
+
+        Long userId = user.getId();
+
+        // Supprimer toutes les données liées avant de supprimer l'utilisateur
+        // (éviter les FK constraint violations)
+        lessonProgressRepository.deleteByStudentId(userId);
+        courseProgressRepository.deleteByStudentId(userId);
+        enrollmentRepository.deleteByStudentId(userId);
+        cartItemRepository.deleteByStudentId(userId);
+        wishlistItemRepository.deleteByStudentId(userId);
+        reviewRepository.deleteByStudentId(userId);
 
         userRepository.delete(user);
     }

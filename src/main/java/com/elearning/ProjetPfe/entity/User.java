@@ -27,7 +27,7 @@ public class User implements UserDetails {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "full_name", nullable = false, length = 150)
+   @Column(name = "full_name", nullable = false, length = 150)
     private String fullName;
 
     @Column(nullable = false, unique = true, length = 150)
@@ -70,6 +70,62 @@ public class User implements UserDetails {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    // ─── Profil étendu ────────────────────────────────────────────────────
+
+    /** Chemin de l'avatar uploadé (ex: /uploads/avatars/uuid.jpg) */
+    @Column(name = "avatar_path", length = 500)
+    private String avatarPath;
+
+    /** Bio courte (affichée sous le nom) */
+    @Column(columnDefinition = "TEXT")
+    private String bio;
+
+    /** À propos de moi (texte long) */
+    @Column(name = "about_me", columnDefinition = "TEXT")
+    private String aboutMe;
+
+    /** Titre professionnel (ex: "Développeur Full-Stack") */
+    @Column(length = 150)
+    private String designation;
+
+    /** Adresse physique */
+    @Column(length = 300)
+    private String address;
+
+    // ─── Réseaux sociaux ──────────────────────────────────────────────────
+    @Column(name = "facebook_url", length = 300)
+    private String facebookUrl;
+
+    @Column(name = "instagram_url", length = 300)
+    private String instagramUrl;
+
+    @Column(name = "twitter_url", length = 300)
+    private String twitterUrl;
+
+    @Column(name = "youtube_url", length = 300)
+    private String youtubeUrl;
+
+    @Column(name = "linkedin_url", length = 300)
+    private String linkedinUrl;
+
+    /** Éducation stockée en JSON (ex: [{"degree":"...","university":"...","years":"..."}]) */
+    @Column(name = "education_json", columnDefinition = "TEXT")
+    private String educationJson;
+
+    /** Expérience stockée en JSON (ex: [{'title':'...','company':'...','years':'...'}]) */
+    @Column(name = "experience_json", columnDefinition = "TEXT")
+    private String experienceJson;
+
+    // ─── Recruteur & Partage de profil ────────────────────────────────────────
+
+    /** Première connexion (mis à true lors de la création d'un compte RECRUITER par un admin) */
+    @Column(name = "first_login")
+    private Boolean firstLogin = false;
+
+    /** L'étudiant accepte de partager son profil/certificats avec les recruteurs */
+    @Column(name = "share_with_recruiters")
+    private Boolean shareWithRecruiters = false;
 
     // Constructeurs
     public User() {}
@@ -135,6 +191,50 @@ public class User implements UserDetails {
 
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
+    // ─── Profil étendu ────────────────────────────────────────────────────
+    public String getAvatarPath() { return avatarPath; }
+    public void setAvatarPath(String avatarPath) { this.avatarPath = avatarPath; }
+
+    public String getBio() { return bio; }
+    public void setBio(String bio) { this.bio = bio; }
+
+    public String getAboutMe() { return aboutMe; }
+    public void setAboutMe(String aboutMe) { this.aboutMe = aboutMe; }
+
+    public String getDesignation() { return designation; }
+    public void setDesignation(String designation) { this.designation = designation; }
+
+    public String getAddress() { return address; }
+    public void setAddress(String address) { this.address = address; }
+
+    public String getFacebookUrl() { return facebookUrl; }
+    public void setFacebookUrl(String facebookUrl) { this.facebookUrl = facebookUrl; }
+
+    public String getInstagramUrl() { return instagramUrl; }
+    public void setInstagramUrl(String instagramUrl) { this.instagramUrl = instagramUrl; }
+
+    public String getTwitterUrl() { return twitterUrl; }
+    public void setTwitterUrl(String twitterUrl) { this.twitterUrl = twitterUrl; }
+
+    public String getYoutubeUrl() { return youtubeUrl; }
+    public void setYoutubeUrl(String youtubeUrl) { this.youtubeUrl = youtubeUrl; }
+
+    public String getLinkedinUrl() { return linkedinUrl; }
+    public void setLinkedinUrl(String linkedinUrl) { this.linkedinUrl = linkedinUrl; }
+
+    public String getEducationJson() { return educationJson; }
+    public void setEducationJson(String educationJson) { this.educationJson = educationJson; }
+
+    public String getExperienceJson() { return experienceJson; }
+    public void setExperienceJson(String experienceJson) { this.experienceJson = experienceJson; }
+
+    public Boolean getFirstLogin() { return firstLogin; }
+    public void setFirstLogin(Boolean firstLogin) { this.firstLogin = firstLogin; }
+
+    public Boolean getShareWithRecruiters() { return shareWithRecruiters; }
+    public void setShareWithRecruiters(Boolean shareWithRecruiters) { this.shareWithRecruiters = shareWithRecruiters; }
+
     public String getOtpCode() { return otpCode; }
     public void setOtpCode(String otpCode) { this.otpCode = otpCode; }
 
