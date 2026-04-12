@@ -48,3 +48,8 @@ application.properties
 
  # Logs
  *.log
+
+# Local environment files
+.env
+.env.*
+!.env.example

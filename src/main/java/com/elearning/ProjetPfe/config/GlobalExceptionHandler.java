@@ -6,13 +6,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.LockedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 /**
- * Intercepte toutes les exceptions non gérées et retourne
- * une réponse JSON propre au lieu d'un 500 Internal Server Error.
+ * @deprecated Remplacé par com.elearning.ProjetPfe.exception.GlobalExceptionHandler
+ * Cette classe est conservée uniquement pour ne pas casser le build.
+ * Elle n'est plus enregistrée comme @RestControllerAdvice.
  */
-@RestControllerAdvice
 public class GlobalExceptionHandler {
 
     // LockedException est lancée par Spring Security quand isAccountNonLocked() = false

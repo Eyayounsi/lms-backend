@@ -1,11 +1,12 @@
 ﻿spring.application.name=ProjetPfe
+spring.config.import=optional:file:.env[.properties]
 # SERVER
 server.port=8081
 
 # DATABASE
-spring.datasource.url=jdbc:mysql://localhost:3306/lms_platform?createDatabaseIfNotExist=true&useSSL=false
-spring.datasource.username=root
-spring.datasource.password=
+spring.datasource.url=${DB_URL:jdbc:mysql://localhost:3306/lms_platform?createDatabaseIfNotExist=true&useSSL=false}
+spring.datasource.username=${DB_USERNAME:root}
+spring.datasource.password=${DB_PASSWORD:}
 spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
 
 # JPA
@@ -14,19 +15,19 @@ spring.jpa.show-sql=true
 spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQL8Dialect
 
 # JWT
-jwt.secret=404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-jwt.expiration=86400000
+jwt.secret=${JWT_SECRET}
+jwt.expiration=${JWT_EXPIRATION:86400000}
 
 # EMAIL (GMAIL)
 spring.mail.host=smtp.gmail.com
 spring.mail.port=587
-spring.mail.username=eyayoounsi@gmail.com
-spring.mail.password=jrmabozjmptmeogf
+spring.mail.username=${MAIL_USERNAME}
+spring.mail.password=${MAIL_PASSWORD}
 spring.mail.properties.mail.smtp.auth=true
 spring.mail.properties.mail.smtp.starttls.enable=true
 
 # CORS Configuration - Development
-app.cors.allowed-origins=http://localhost:4200
+app.cors.allowed-origins=${CORS_ALLOWED_ORIGINS:http://localhost:4200}
 
 # FILE UPLOAD ? limite de taille pour les vid�os et fichiers
 spring.servlet.multipart.max-file-size=500MB
@@ -38,22 +39,22 @@ app.upload.dir=uploads
 # STRIPE ? MODE TEST (paiement en ligne)
 # ???????????????????????????????????????????????????????????
 # Cl� secr�te (sk_test_...) ? utilis�e UNIQUEMENT c�t� backend
-stripe.secret.key=sk_test_51T3lMW0bjuONz0sHWhMOohfgXX05RZavuKJWae2n4G3idArQoVUgDal6gk4ISyH069HsQx5qaylstr1CPFGK031a00GHP0NaxP
+stripe.secret.key=${STRIPE_SECRET_KEY}
 
 # Cl� publique (pk_test_...) ? envoy�e au frontend
-stripe.public.key=pk_test_51T3lMW0bjuONz0sHIHHMH2JF9P2ImdX5OngfrD2m2CjuGp3Dd8tm1WxlEAMlQZxb3DoM95ExHUmoDTOt1L34KaUb00dZIu6f2q
+stripe.public.key=${STRIPE_PUBLIC_KEY}
 
 # Webhook secret ? pour v�rifier que les notifications viennent bien de Stripe
 # (tu l'obtiendras quand on configurera le webhook)
-stripe.webhook.secret=whsec_REMPLACE_PLUS_TARD
+stripe.webhook.secret=${STRIPE_WEBHOOK_SECRET}
 
 # URLs de redirection apres paiement
-stripe.success.url=http://localhost:4200/student/student-my-courses
-stripe.cancel.url=http://localhost:4200/courses
+stripe.success.url=${STRIPE_SUCCESS_URL:http://localhost:4200/student/student-my-courses}
+stripe.cancel.url=${STRIPE_CANCEL_URL:http://localhost:4200/courses}
 
 # PLATFORM SETTINGS
 # Commission plateforme sur chaque vente (0.30 = 30%)
-app.platform.commission.rate=0.30
+app.platform.commission.rate=0.60
 
 # Nombre maximum de cours featured en meme temps
 app.featured.max.courses=10
