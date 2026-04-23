@@ -10,7 +10,7 @@ public class ProjetPfeApplication {
 		SpringApplication.run(ProjetPfeApplication.class, args);
 		System.out.println("==========================================");
 		System.out.println("✅ APPLICATION DÉMARRÉE AVEC SUCCÈS");
-		System.out.println("📍 http://localhost:8080/api/auth/test");
+		System.out.println("📍 http://localhost:8081/api/auth/test");
 		System.out.println("==========================================");
 	}
 

@@ -1,23 +1,24 @@
 package com.elearning.ProjetPfe.security;
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
-import io.jsonwebtoken.security.Keys;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.stereotype.Service;
-
 import java.security.Key;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.stereotype.Service;
+
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.security.Keys;
+
 @Service
 public class JwtService {
 
-    @Value("${jwt.secret:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}")
+    @Value("${jwt.secret}")
     private String secret;
 
     @Value("${jwt.expiration:86400000}")
@@ -25,6 +26,31 @@ public class JwtService {
 
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
+    }
+
+    /**
+     * Extrait le claim "role" du token JWT (rôle actif de la session).
+     * Retourne null si le claim est absent ou si le token est invalide.
+     */
+    public String extractRole(String token) {
+        try {
+            return extractClaim(token, claims -> claims.get("role", String.class));
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * Méthode SÛRE pour extraire le username
+     * Retourne null au lieu de lancer une exception si le token est invalide/expiré
+     */
+    public String extractUsernameIfValid(String token) {
+        try {
+            return extractUsername(token);
+        } catch (Exception e) {
+            // Token expiré, invalide ou corrompu - retourner null
+            return null;
+        }
     }
 
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
