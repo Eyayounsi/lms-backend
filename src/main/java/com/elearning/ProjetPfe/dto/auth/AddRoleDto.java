@@ -14,7 +14,7 @@ public class AddRoleDto {
     private String password;
 
     @NotBlank(message = "Rôle à ajouter requis")
-    @Pattern(regexp = "STUDENT|INSTRUCTOR", message = "Seuls les rôles STUDENT et INSTRUCTOR peuvent être ajoutés")
+    @Pattern(regexp = "STUDENT", message = "Seul le rôle STUDENT peut être ajouté")
     private String newRole;
 
     // Constructeurs

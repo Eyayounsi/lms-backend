@@ -620,7 +620,7 @@ public class UserService {
 
     // ─────────────────────────────────────────────────────────────────────────
 
-    // 5. AJOUTER UN RÔLE SECONDAIRE (STUDENT ↔ INSTRUCTOR, un seul compte multi-rôle)
+    // 5. AJOUTER UN RÔLE SECONDAIRE (STUDENT uniquement)
     @Transactional
     public AuthResponseDto addUserRole(AddRoleDto request) {
         // Vérifier les identifiants
@@ -642,6 +642,9 @@ public class UserService {
         }
 
         Role newRole = Role.valueOf(request.getNewRole());
+        if (newRole != Role.STUDENT) {
+            throw new RuntimeException("Seul le rôle STUDENT peut être ajouté");
+        }
 
         // Vérifier que le rôle demandé n'est pas déjà actif (principal ou secondaire)
         if (user.hasRole(newRole)) {

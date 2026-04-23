@@ -22,7 +22,10 @@ import com.elearning.ProjetPfe.dto.chatbot.AiAgentRequest;
 import com.elearning.ProjetPfe.dto.chatbot.AiAgentResponse;
 import com.elearning.ProjetPfe.entity.course.Course;
 import com.elearning.ProjetPfe.entity.course.CourseStatus;
+import com.elearning.ProjetPfe.entity.course.Lesson;
+import com.elearning.ProjetPfe.entity.course.Section;
 import com.elearning.ProjetPfe.repository.course.CourseRepository;
+import com.elearning.ProjetPfe.repository.course.LessonRepository;
 import com.elearning.ProjetPfe.service.mongo.MongoAuditService;
 
 @Service
@@ -31,6 +34,7 @@ public class PublicChatbotService {
     private final RestTemplate restTemplate;
     private final MongoAuditService mongoAuditService;
     private final CourseRepository courseRepository;
+    private final LessonRepository lessonRepository;
 
     @Value("${app.chatbot.hf.api-url:https://api-inference.huggingface.co/models}")
     private String huggingFaceApiUrl;
@@ -61,10 +65,12 @@ public class PublicChatbotService {
 
     public PublicChatbotService(RestTemplateBuilder restTemplateBuilder,
                                 MongoAuditService mongoAuditService,
-                                CourseRepository courseRepository) {
+                                CourseRepository courseRepository,
+                                LessonRepository lessonRepository) {
         this.restTemplate = restTemplateBuilder.build();
         this.mongoAuditService = mongoAuditService;
         this.courseRepository = courseRepository;
+        this.lessonRepository = lessonRepository;
     }
 
     public String generateReply(String rawMessage) {
@@ -197,6 +203,107 @@ public class PublicChatbotService {
 
     public AiAgentResponse adminCopilot(AiAgentRequest request) {
         return callPythonAgent("/agents/admin/copilot", request, true);
+    }
+
+    /**
+     * Récupère les questions fréquentes des étudiants depuis le service Python (MongoDB).
+     * Utilisé par l'admin pour améliorer le contenu des cours et le training du chatbot.
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> getStudentFaqStats(int limit, String courseId) {
+        String baseUrl = pythonChatbotServiceBaseUrl == null ? "" : pythonChatbotServiceBaseUrl.trim();
+        if (baseUrl.isEmpty()) {
+            return Map.of("total", 0, "items", List.of(), "error", "Service Python non configuré");
+        }
+
+        try {
+            String url = baseUrl.endsWith("/")
+                    ? baseUrl.substring(0, baseUrl.length() - 1)
+                    : baseUrl;
+            url += "/agents/admin/student-faq-stats?limit=" + limit;
+            if (courseId != null && !courseId.isBlank()) {
+                url += "&course_id=" + courseId.trim();
+            }
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            if (pythonAgentApiKey != null && !pythonAgentApiKey.isBlank()) {
+                headers.add("X-Agent-Api-Key", pythonAgentApiKey.trim());
+            }
+
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
+            Map<String, Object> body = (Map<String, Object>) response.getBody();
+            
+            if (body != null && body.containsKey("items")) {
+                // Enrichir les items avec les noms du cours, section et leçon
+                List<Map<String, Object>> items = (List<Map<String, Object>>) body.get("items");
+                enrichFaqItemsWithNames(items);
+            }
+            
+            return body != null ? body : Map.of("total", 0, "items", List.of());
+        } catch (RestClientException ex) {
+            return Map.of("total", 0, "items", List.of(), "error", "Service Python indisponible");
+        }
+    }
+
+    /**
+     * Enrichit les items FAQ avec les noms réels du cours, section et leçon
+     */
+    private void enrichFaqItemsWithNames(List<Map<String, Object>> items) {
+        for (Map<String, Object> item : items) {
+            try {
+                // Récupérer courseId et lessonId
+                Object courseIdObj = item.get("courseId");
+                Object lessonIdObj = item.get("lessonId");
+                
+                String courseIdStr = courseIdObj != null ? String.valueOf(courseIdObj) : null;
+                String lessonIdStr = lessonIdObj != null ? String.valueOf(lessonIdObj) : null;
+                
+                // Nettoyer les valeurs "null" en string
+                if ("null".equals(courseIdStr) || "None".equals(courseIdStr)) {
+                    courseIdStr = null;
+                }
+                if ("null".equals(lessonIdStr) || "None".equals(lessonIdStr)) {
+                    lessonIdStr = null;
+                }
+                
+                if (courseIdStr != null && !courseIdStr.isBlank()) {
+                    try {
+                        Long courseId = Long.parseLong(courseIdStr);
+                        Course course = courseRepository.findById(courseId).orElse(null);
+                        
+                        if (course != null) {
+                            item.put("courseName", course.getTitle());
+                            
+                            // Si lessonId est fourni, récupérer la leçon et sa section
+                            if (lessonIdStr != null && !lessonIdStr.isBlank()) {
+                                try {
+                                    Long lessonId = Long.parseLong(lessonIdStr);
+                                    Lesson lesson = lessonRepository.findById(lessonId).orElse(null);
+                                    
+                                    if (lesson != null) {
+                                        item.put("lessonName", lesson.getTitle());
+                                        
+                                        // Récupérer la section
+                                        Section section = lesson.getSection();
+                                        if (section != null) {
+                                            item.put("sectionName", section.getTitle());
+                                        }
+                                    }
+                                } catch (NumberFormatException e) {
+                                    // lessonId invalide, ignorer
+                                }
+                            }
+                        }
+                    } catch (NumberFormatException e) {
+                        // courseId invalide, ignorer
+                    }
+                }
+            } catch (Exception e) {
+                // Ignorer les erreurs d'enrichissement pour ne pas bloquer l'affichage
+            }
+        }
     }
 
     @SuppressWarnings("unchecked")

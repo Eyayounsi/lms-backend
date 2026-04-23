@@ -17,6 +17,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.util.HtmlUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.elearning.ProjetPfe.dto.course.CourseResponseDto;
@@ -221,6 +222,12 @@ public class CourseService {
     /**
      * Sauvegarde les modifications proposées en JSON dans le champ pending_edit.
      * Le cours reste PUBLISHED — les étudiants continuent de voir la version actuelle.
+     *
+     * Le JSON contient :
+     *   - les métadonnées du cours (title, description, price, ...)
+     *   - sectionsSnapshot : snapshot complet des sections/leçons ACTUELLES
+     *     (avant que l'instructor ne modifie le contenu des leçons).
+     *     Ce snapshot sert à restaurer l'ancienne version si l'admin rejette.
      */
     private CourseResponseDto savePendingEdit(Course course, CreateCourseDto dto) {
         ObjectMapper mapper = new ObjectMapper();
@@ -237,6 +244,28 @@ public class CourseService {
         pending.put("discountPrice", dto.getDiscountPrice());
         pending.put("discountEndsAt", dto.getDiscountEndsAt());
         pending.put("categoryId", dto.getCategoryId());
+
+        // ── Snapshot de l'état actuel des sections/leçons ──────────────────
+        // Sauvegarder UNIQUEMENT si aucun snapshot n'existe déjà (premier appel).
+        // Si l'instructor modifie plusieurs fois avant approbation, on garde
+        // le snapshot de la version originale publiée (pas d'écrasement).
+        if (!course.isHasPendingEdit() || course.getPendingEdit() == null) {
+            List<Map<String, Object>> sectionsSnap = buildSectionsSnapshot(course);
+            pending.put("sectionsSnapshot", sectionsSnap);
+        } else {
+            // Conserver le snapshot existant pour ne pas perdre la version originale
+            try {
+                Map<String, Object> existing = mapper.readValue(
+                        course.getPendingEdit(), new TypeReference<Map<String, Object>>() {});
+                if (existing.containsKey("sectionsSnapshot")) {
+                    pending.put("sectionsSnapshot", existing.get("sectionsSnapshot"));
+                } else {
+                    pending.put("sectionsSnapshot", buildSectionsSnapshot(course));
+                }
+            } catch (JsonProcessingException e) {
+                pending.put("sectionsSnapshot", buildSectionsSnapshot(course));
+            }
+        }
 
         try {
             course.setPendingEdit(mapper.writeValueAsString(pending));
@@ -258,6 +287,100 @@ public class CourseService {
         );
 
         return toResponseDto(course);
+    }
+
+    /**
+     * Construit un snapshot sérialisable des sections et leçons actuelles du cours.
+     * Utilisé pour pouvoir restaurer l'ancienne version si l'admin rejette la modification.
+     */
+    private List<Map<String, Object>> buildSectionsSnapshot(Course course) {
+        List<Map<String, Object>> sectionsSnap = new java.util.ArrayList<>();
+        if (course.getSections() == null) return sectionsSnap;
+
+        for (Section section : course.getSections()) {
+            Map<String, Object> sSnap = new HashMap<>();
+            sSnap.put("id", section.getId());
+            sSnap.put("title", section.getTitle());
+            sSnap.put("orderIndex", section.getOrderIndex());
+
+            List<Map<String, Object>> lessonsSnap = new java.util.ArrayList<>();
+            if (section.getLessons() != null) {
+                for (Lesson lesson : section.getLessons()) {
+                    Map<String, Object> lSnap = new HashMap<>();
+                    lSnap.put("id", lesson.getId());
+                    lSnap.put("title", lesson.getTitle());
+                    lSnap.put("description", lesson.getDescription());
+                    lSnap.put("orderIndex", lesson.getOrderIndex());
+                    lSnap.put("lessonType", lesson.getLessonType() != null ? lesson.getLessonType().name() : "VIDEO");
+                    lSnap.put("free", lesson.isFree());
+                    lSnap.put("videoUrl", lesson.getVideoUrl());
+                    lSnap.put("videoSize", lesson.getVideoSize());
+                    lSnap.put("pdfUrl", lesson.getPdfUrl());
+                    lSnap.put("articleContent", lesson.getArticleContent());
+                    lSnap.put("durationSeconds", lesson.getDurationSeconds());
+                    lessonsSnap.add(lSnap);
+                }
+            }
+            sSnap.put("lessons", lessonsSnap);
+            sectionsSnap.add(sSnap);
+        }
+        return sectionsSnap;
+    }
+
+    /**
+     * S'assure qu'un snapshot existe AVANT toute modification de leçon sur un cours publié.
+     * Cette méthode est appelée par uploadLessonVideo, uploadLessonPdf, updateLesson, etc.
+     * pour garantir que le snapshot capture l'état AVANT la modification.
+     */
+    @Transactional
+    private void ensureSnapshotBeforeLessonModification(Course course) {
+        // Seulement pour les cours publiés
+        if (course.getStatus() != CourseStatus.PUBLISHED) {
+            return;
+        }
+
+        // Si un snapshot existe déjà, ne rien faire (on garde la version originale)
+        if (course.isHasPendingEdit() && course.getPendingEdit() != null) {
+            try {
+                ObjectMapper mapper = new ObjectMapper();
+                mapper.registerModule(new JavaTimeModule());
+                Map<String, Object> existing = mapper.readValue(
+                        course.getPendingEdit(), new TypeReference<Map<String, Object>>() {});
+                if (existing.containsKey("sectionsSnapshot")) {
+                    return; // Snapshot déjà présent
+                }
+            } catch (JsonProcessingException e) {
+                // Continuer pour créer un nouveau snapshot
+            }
+        }
+
+        // Créer un snapshot de l'état actuel (AVANT modification)
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+        
+        Map<String, Object> pending = new HashMap<>();
+        // Copier les métadonnées existantes si elles existent
+        if (course.getPendingEdit() != null) {
+            try {
+                Map<String, Object> existing = mapper.readValue(
+                        course.getPendingEdit(), new TypeReference<Map<String, Object>>() {});
+                pending.putAll(existing);
+            } catch (JsonProcessingException e) {
+                // Ignorer et créer un nouveau pending
+            }
+        }
+
+        // Ajouter le snapshot des sections/leçons
+        List<Map<String, Object>> sectionsSnap = buildSectionsSnapshot(course);
+        pending.put("sectionsSnapshot", sectionsSnap);
+
+        try {
+            course.setPendingEdit(mapper.writeValueAsString(pending));
+            course.setHasPendingEdit(true);
+            courseRepository.save(course);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Erreur lors de la création du snapshot");
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -404,6 +527,11 @@ public class CourseService {
         if (!lesson.getSection().getCourse().getInstructor().getId().equals(instructor.getId())) {
             throw new RuntimeException("Vous n'êtes pas le propriétaire de ce cours");
         }
+
+        // ── VERSIONING : créer snapshot AVANT modification si cours publié ──
+        Course course = lesson.getSection().getCourse();
+        ensureSnapshotBeforeLessonModification(course);
+
         if (body.containsKey("title")) {
             String title = (String) body.get("title");
             if (title != null && !title.isBlank()) lesson.setTitle(title.trim());
@@ -575,6 +703,54 @@ public class CourseService {
                 course.setCategory(category);
             }
 
+            // Appliquer les modifications sur les sections/leçons si présentes
+            if (pending.get("sections") != null) {
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> sectionsPending = (List<Map<String, Object>>) pending.get("sections");
+                if (sectionsPending != null) {
+                    for (Map<String, Object> sPending : sectionsPending) {
+                        Long sId = toLong(sPending.get("id"));
+                        Section section = sId != null ? sectionRepository.findById(sId).orElse(null) : null;
+                        if (section == null) {
+                            section = new Section();
+                            section.setCourse(course);
+                        }
+                        if (sPending.get("title") != null) section.setTitle((String) sPending.get("title"));
+                        if (sPending.get("orderIndex") != null) section.setOrderIndex(toInt(sPending.get("orderIndex")));
+                        section = sectionRepository.save(section);
+
+                        @SuppressWarnings("unchecked")
+                        List<Map<String, Object>> lessonsPending = (List<Map<String, Object>>) sPending.get("lessons");
+                        if (lessonsPending != null) {
+                            for (Map<String, Object> lPending : lessonsPending) {
+                                Long lId = toLong(lPending.get("id"));
+                                Lesson lesson = lId != null ? lessonRepository.findById(lId).orElse(null) : null;
+                                if (lesson == null) {
+                                    lesson = new Lesson();
+                                    lesson.setSection(section);
+                                }
+                                if (lPending.get("title") != null) lesson.setTitle((String) lPending.get("title"));
+                                if (lPending.get("description") != null) lesson.setDescription((String) lPending.get("description"));
+                                if (lPending.get("orderIndex") != null) lesson.setOrderIndex(toInt(lPending.get("orderIndex")));
+                                if (lPending.get("free") != null) lesson.setFree(Boolean.TRUE.equals(lPending.get("free")));
+                                if (lPending.get("videoUrl") != null) lesson.setVideoUrl((String) lPending.get("videoUrl"));
+                                if (lPending.get("videoSize") != null) lesson.setVideoSize(toLong(lPending.get("videoSize")));
+                                if (lPending.get("pdfUrl") != null) lesson.setPdfUrl((String) lPending.get("pdfUrl"));
+                                if (lPending.get("articleContent") != null) lesson.setArticleContent((String) lPending.get("articleContent"));
+                                if (lPending.get("durationSeconds") != null) lesson.setDurationSeconds(toLong(lPending.get("durationSeconds")));
+                                String lt = (String) lPending.get("lessonType");
+                                try {
+                                    if (lt != null) lesson.setLessonType(com.elearning.ProjetPfe.entity.course.LessonType.valueOf(lt));
+                                } catch (Exception e) {
+                                    lesson.setLessonType(com.elearning.ProjetPfe.entity.course.LessonType.VIDEO);
+                                }
+                                lessonRepository.save(lesson);
+                            }
+                        }
+                    }
+                }
+            }
+
         } catch (JsonProcessingException e) {
             throw new RuntimeException("Erreur de lecture des modifications en attente");
         }
@@ -610,6 +786,27 @@ public class CourseService {
             throw new RuntimeException("Ce cours n'a pas de modification en attente");
         }
 
+        // ── Restaurer le snapshot des sections/leçons ──────────────────────
+        // Si l'instructor a modifié le contenu des leçons (PDF, vidéo, article)
+        // pendant la période de pending, on restaure l'ancienne version.
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            mapper.registerModule(new JavaTimeModule());
+            Map<String, Object> pending = mapper.readValue(
+                    course.getPendingEdit(), new TypeReference<Map<String, Object>>() {});
+
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> sectionsSnapshot =
+                    (List<Map<String, Object>>) pending.get("sectionsSnapshot");
+
+            if (sectionsSnapshot != null && !sectionsSnapshot.isEmpty()) {
+                restoreSectionsFromSnapshot(course, sectionsSnapshot);
+            }
+        } catch (Exception e) {
+            log.warn("[REJECT_EDIT] Impossible de restaurer le snapshot du cours {} : {}", courseId, e.getMessage());
+            // Ne pas bloquer le rejet si la restauration échoue
+        }
+
         course.setPendingEdit(null);
         course.setHasPendingEdit(false);
         course.setEditRejectionReason(reason);
@@ -625,6 +822,124 @@ public class CourseService {
         );
 
         return toResponseDto(course);
+    }
+
+    /**
+     * Restaure les sections et leçons d'un cours depuis un snapshot JSON.
+     *
+     * Stratégie :
+     *   1. Pour chaque section du snapshot → mettre à jour titre/ordre si elle existe encore
+     *   2. Pour chaque leçon du snapshot → restaurer tous les champs de contenu
+     *   3. Les sections/leçons ajoutées par l'instructor pendant le pending
+     *      (qui n'existent pas dans le snapshot) sont supprimées.
+     *   4. Les sections/leçons du snapshot qui n'existent plus sont recréées.
+     */
+    @Transactional
+    private void restoreSectionsFromSnapshot(Course course,
+                                              List<Map<String, Object>> sectionsSnapshot) {
+        // IDs des sections et leçons présents dans le snapshot
+        java.util.Set<Long> snapshotSectionIds = new java.util.HashSet<>();
+        java.util.Set<Long> snapshotLessonIds  = new java.util.HashSet<>();
+
+        for (Map<String, Object> sSnap : sectionsSnapshot) {
+            Long sId = toLong(sSnap.get("id"));
+            if (sId != null) snapshotSectionIds.add(sId);
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> lSnaps = (List<Map<String, Object>>) sSnap.get("lessons");
+            if (lSnaps != null) {
+                for (Map<String, Object> lSnap : lSnaps) {
+                    Long lId = toLong(lSnap.get("id"));
+                    if (lId != null) snapshotLessonIds.add(lId);
+                }
+            }
+        }
+
+        // ── Supprimer les sections ajoutées pendant le pending ─────────────
+        List<Section> currentSections = new java.util.ArrayList<>(course.getSections());
+        for (Section section : currentSections) {
+            if (!snapshotSectionIds.contains(section.getId())) {
+                // Section créée pendant le pending → supprimer ses leçons d'abord
+                for (Lesson lesson : new java.util.ArrayList<>(section.getLessons())) {
+                    lessonProgressRepository.deleteByLessonId(lesson.getId());
+                    resourceRepository.deleteAllByLessonId(lesson.getId());
+                }
+                course.getSections().remove(section);
+                sectionRepository.delete(section);
+            }
+        }
+
+        // ── Restaurer chaque section du snapshot ───────────────────────────
+        for (Map<String, Object> sSnap : sectionsSnapshot) {
+            Long sId = toLong(sSnap.get("id"));
+            String sTitle = (String) sSnap.get("title");
+            int sOrder = toInt(sSnap.get("orderIndex"));
+
+            Section section = sectionRepository.findById(sId).orElse(null);
+            if (section == null) {
+                // Section supprimée pendant le pending → recréer
+                section = new Section();
+                section.setCourse(course);
+            }
+            section.setTitle(sTitle);
+            section.setOrderIndex(sOrder);
+            section = sectionRepository.save(section);
+
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> lSnaps = (List<Map<String, Object>>) sSnap.get("lessons");
+            if (lSnaps == null) lSnaps = java.util.Collections.emptyList();
+
+            // Supprimer les leçons ajoutées pendant le pending dans cette section
+            for (Lesson lesson : new java.util.ArrayList<>(section.getLessons())) {
+                if (!snapshotLessonIds.contains(lesson.getId())) {
+                    lessonProgressRepository.deleteByLessonId(lesson.getId());
+                    resourceRepository.deleteAllByLessonId(lesson.getId());
+                    section.getLessons().remove(lesson);
+                    lessonRepository.delete(lesson);
+                }
+            }
+
+            // Restaurer chaque leçon du snapshot
+            for (Map<String, Object> lSnap : lSnaps) {
+                Long lId = toLong(lSnap.get("id"));
+                Lesson lesson = lId != null ? lessonRepository.findById(lId).orElse(null) : null;
+                if (lesson == null) {
+                    lesson = new Lesson();
+                    lesson.setSection(section);
+                }
+                lesson.setTitle((String) lSnap.get("title"));
+                lesson.setDescription((String) lSnap.get("description"));
+                lesson.setOrderIndex(toInt(lSnap.get("orderIndex")));
+                lesson.setFree(Boolean.TRUE.equals(lSnap.get("free")));
+                lesson.setVideoUrl((String) lSnap.get("videoUrl"));
+                lesson.setVideoSize(toLong(lSnap.get("videoSize")));
+                lesson.setPdfUrl((String) lSnap.get("pdfUrl"));
+                lesson.setArticleContent((String) lSnap.get("articleContent"));
+                lesson.setDurationSeconds(toLong(lSnap.get("durationSeconds")));
+                String lt = (String) lSnap.get("lessonType");
+                try {
+                    lesson.setLessonType(com.elearning.ProjetPfe.entity.course.LessonType.valueOf(lt));
+                } catch (Exception e) {
+                    lesson.setLessonType(com.elearning.ProjetPfe.entity.course.LessonType.VIDEO);
+                }
+                lessonRepository.save(lesson);
+            }
+        }
+    }
+
+    /** Convertit un Object en Long de façon sûre (Integer, Long, String). */
+    private Long toLong(Object val) {
+        if (val == null) return null;
+        if (val instanceof Long) return (Long) val;
+        if (val instanceof Integer) return ((Integer) val).longValue();
+        try { return Long.valueOf(val.toString()); } catch (Exception e) { return null; }
+    }
+
+    /** Convertit un Object en int de façon sûre. */
+    private int toInt(Object val) {
+        if (val == null) return 0;
+        if (val instanceof Integer) return (Integer) val;
+        if (val instanceof Long) return ((Long) val).intValue();
+        try { return Integer.parseInt(val.toString()); } catch (Exception e) { return 0; }
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -1078,6 +1393,9 @@ public class CourseService {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new RuntimeException("Cours non trouvé"));
 
+        log.info("[STUDENT_VIEW] Course ID={}, hasPendingEdit={}, status={}", 
+                 courseId, course.isHasPendingEdit(), course.getStatus());
+
         // Vérifier si l'étudiant a payé / est inscrit
         boolean enrolled = enrollmentRepository.findByStudentIdAndCourseIdAndPaymentStatus(
                 student.getId(), courseId, PaymentStatus.PAID
@@ -1089,8 +1407,25 @@ public class CourseService {
 
         // Un étudiant inscrit (enrollment PAID) garde toujours accès au contenu,
         // quel que soit le statut actuel du cours (publié, archivé, etc.).
+        //
+        // IMPORTANT — versioning :
+        //   • Si hasPendingEdit=true  → l'admin n'a pas encore statué.
+        //     L'étudiant voit la version PUBLIÉE actuelle (les champs du cours
+        //     n'ont PAS encore été modifiés — le JSON est dans pendingEdit).
+        //   • Si l'admin APPROUVE    → approvePendingEdit() applique le JSON
+        //     sur l'entité Course ; l'étudiant verra la nouvelle version au
+        //     prochain appel.
+        //   • Si l'admin REJETTE     → rejectPendingEdit() efface le JSON ;
+        //     l'étudiant continue de voir la version actuelle inchangée.
+        //
+        // Dans tous les cas, toStudentDto() masque les métadonnées de
+        // versioning (pendingEditData, hasPendingEdit, editRejectionReason)
+        // qui sont réservées à l'admin et à l'instructor.
+        //
+        // On charge les sections et leçons DIRECTEMENT depuis les repositories
+        // pour garantir des données fraîches (évite tout cache Hibernate L1/L2).
 
-        return toResponseDto(course); // version complète avec sections et leçons
+        return toStudentDtoFresh(course);
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -1293,6 +1628,10 @@ public class CourseService {
             throw new RuntimeException("Vous n'êtes pas le propriétaire de ce cours");
         }
 
+        // ── VERSIONING : créer snapshot AVANT modification si cours publié ──
+        Course course = lesson.getSection().getCourse();
+        ensureSnapshotBeforeLessonModification(course);
+
         // Vérifier la taille
         fileStorageService.validateVideoSize(file);
 
@@ -1302,6 +1641,11 @@ public class CourseService {
         String path = fileStorageService.storeFile(file, "videos");
         lesson.setVideoUrl(path);
         lesson.setVideoSize(file.getSize());
+        // Synchroniser le type : un upload vidéo rend la leçon de type VIDEO
+        lesson.setLessonType(com.elearning.ProjetPfe.entity.course.LessonType.VIDEO);
+        // Supprimer l'ancien contenu (PDF et article) pour éviter les conflits
+        lesson.setPdfUrl(null);
+        lesson.setArticleContent(null);
         lesson = lessonRepository.save(lesson);
         return toLessonDto(lesson);
     }
@@ -1319,10 +1663,32 @@ public class CourseService {
             throw new RuntimeException("Vous n'êtes pas le propriétaire de ce cours");
         }
 
+        // ── VALIDATION : Vérifier que le fichier est bien un PDF ──
+        String originalFilename = file.getOriginalFilename();
+        String contentType = file.getContentType();
+        
+        if (originalFilename == null || !originalFilename.toLowerCase().endsWith(".pdf")) {
+            throw new RuntimeException("Le fichier doit être au format PDF (.pdf)");
+        }
+        
+        if (contentType != null && !contentType.equals("application/pdf")) {
+            throw new RuntimeException("Le type de fichier doit être application/pdf");
+        }
+
+        // ── VERSIONING : créer snapshot AVANT modification si cours publié ──
+        Course course = lesson.getSection().getCourse();
+        ensureSnapshotBeforeLessonModification(course);
+
         fileStorageService.deleteFile(lesson.getPdfUrl());
 
         String path = fileStorageService.storeFile(file, "pdfs");
         lesson.setPdfUrl(path);
+        // Synchroniser le type : un upload PDF rend la leçon de type PDF
+        lesson.setLessonType(com.elearning.ProjetPfe.entity.course.LessonType.PDF);
+        // Supprimer l'ancien contenu (vidéo et article) pour éviter les conflits
+        lesson.setVideoUrl(null);
+        lesson.setVideoSize(null);
+        lesson.setArticleContent(null);
         lesson = lessonRepository.save(lesson);
         return toLessonDto(lesson);
     }
@@ -1338,6 +1704,11 @@ public class CourseService {
         if (!lesson.getSection().getCourse().getInstructor().getId().equals(instructor.getId())) {
             throw new RuntimeException("Vous n'êtes pas le propriétaire de ce cours");
         }
+
+        // ── VERSIONING : créer snapshot AVANT modification si cours publié ──
+        Course course = lesson.getSection().getCourse();
+        ensureSnapshotBeforeLessonModification(course);
+
         fileStorageService.deleteFile(lesson.getVideoUrl());
         lesson.setVideoUrl(null);
         lesson.setVideoSize(null);
@@ -1352,6 +1723,11 @@ public class CourseService {
         if (!lesson.getSection().getCourse().getInstructor().getId().equals(instructor.getId())) {
             throw new RuntimeException("Vous n'êtes pas le propriétaire de ce cours");
         }
+
+        // ── VERSIONING : créer snapshot AVANT modification si cours publié ──
+        Course course = lesson.getSection().getCourse();
+        ensureSnapshotBeforeLessonModification(course);
+
         fileStorageService.deleteFile(lesson.getPdfUrl());
         lesson.setPdfUrl(null);
         lesson = lessonRepository.save(lesson);
@@ -1365,6 +1741,11 @@ public class CourseService {
         if (!lesson.getSection().getCourse().getInstructor().getId().equals(instructor.getId())) {
             throw new RuntimeException("Vous n'êtes pas le propriétaire de ce cours");
         }
+
+        // ── VERSIONING : créer snapshot AVANT modification si cours publié ──
+        Course course = lesson.getSection().getCourse();
+        ensureSnapshotBeforeLessonModification(course);
+
         lesson.setArticleContent(null);
         lesson.setLessonType(com.elearning.ProjetPfe.entity.course.LessonType.VIDEO);
         lesson = lessonRepository.save(lesson);
@@ -1452,6 +1833,144 @@ public class CourseService {
     }
 
     /**
+     * DTO ÉTUDIANT : contenu complet du cours (sections + leçons avec URLs),
+     * mais sans les métadonnées de versioning réservées à l'admin/instructor.
+     *
+     * Règle de versioning :
+     *   - Si hasPendingEdit=true  → les champs du cours sont la version PUBLIÉE
+     *     actuelle (le JSON pendingEdit n'est pas encore appliqué).
+     *     L'étudiant voit donc la bonne version en attente de décision admin.
+     *   - Si l'admin APPROUVE     → approvePendingEdit() applique le JSON sur
+     *     l'entité ; l'étudiant verra la nouvelle version au prochain appel.
+     *   - Si l'admin REJETTE      → rejectPendingEdit() efface le JSON ;
+     *     l'étudiant continue de voir la version actuelle inchangée.
+     *
+     * On masque hasPendingEdit, pendingEditData et editRejectionReason car
+     * ce sont des données internes de workflow non destinées à l'étudiant.
+     */
+    private CourseResponseDto toStudentDto(Course course) {
+        CourseResponseDto dto = new CourseResponseDto();
+        fillCommonFields(dto, course);
+
+        // Masquer les métadonnées de versioning — réservées à l'admin/instructor
+        dto.setHasPendingEdit(false);
+        dto.setPendingEditData(null);
+        dto.setEditRejectionReason(null);
+
+        // Inclure les sections avec leurs leçons (contenu complet, URLs incluses)
+        if (course.getSections() != null) {
+            dto.setSections(
+                course.getSections().stream()
+                    .map(this::toSectionDto)
+                    .collect(Collectors.toList())
+            );
+        }
+        return dto;
+    }
+
+    /**
+     * Variante de toStudentDto qui charge les sections et leçons DIRECTEMENT
+     * depuis les repositories (requêtes SQL fraîches) pour garantir que
+     * l'étudiant voit toujours la version en base, sans aucun cache Hibernate.
+     *
+     * Utilisé exclusivement par getCourseContent() pour éviter que le cache
+     * de premier niveau Hibernate (L1) ou les collections lazy déjà initialisées
+     * ne retournent une version stale après une modification approuvée par l'admin.
+     */
+    private CourseResponseDto toStudentDtoFresh(Course course) {
+        CourseResponseDto dto = new CourseResponseDto();
+        fillCommonFields(dto, course);
+
+        // Masquer les métadonnées de versioning — réservées à l'admin/instructor
+        dto.setHasPendingEdit(false);
+        dto.setPendingEditData(null);
+        dto.setEditRejectionReason(null);
+
+        // Charger les sections directement depuis la DB (requête fraîche)
+        List<Section> freshSections = sectionRepository.findByCourseIdOrderByOrderIndexAsc(course.getId());
+        log.info("[STUDENT_VIEW_FRESH] Course ID={}, sections count={}", course.getId(), freshSections.size());
+        
+        dto.setSections(
+            freshSections.stream()
+                .map(section -> {
+                    SectionDto sDto = new SectionDto();
+                    sDto.setId(section.getId());
+                    sDto.setTitle(section.getTitle());
+                    sDto.setOrderIndex(section.getOrderIndex());
+                    // Charger les leçons directement depuis la DB (requête fraîche)
+                    List<Lesson> freshLessons = lessonRepository.findBySectionIdOrderByOrderIndexAsc(section.getId());
+                    log.info("[STUDENT_VIEW_FRESH] Section ID={}, lessons count={}", section.getId(), freshLessons.size());
+                    
+                    sDto.setLessons(
+                        freshLessons.stream()
+                            .map(lesson -> {
+                                // ── AUTO-FIX : Corriger les incohérences de lessonType ──
+                                boolean needsFix = false;
+                                com.elearning.ProjetPfe.entity.course.LessonType correctedType = lesson.getLessonType();
+                                
+                                // Si PDF existe mais type != PDF
+                                if (lesson.getPdfUrl() != null && !lesson.getPdfUrl().isBlank() 
+                                    && lesson.getLessonType() != com.elearning.ProjetPfe.entity.course.LessonType.PDF) {
+                                    correctedType = com.elearning.ProjetPfe.entity.course.LessonType.PDF;
+                                    needsFix = true;
+                                    log.warn("[AUTO-FIX] Lesson ID={} has PDF but type={}, correcting to PDF", 
+                                             lesson.getId(), lesson.getLessonType());
+                                }
+                                // Si VIDEO existe mais type != VIDEO
+                                else if (lesson.getVideoUrl() != null && !lesson.getVideoUrl().isBlank() 
+                                         && lesson.getLessonType() != com.elearning.ProjetPfe.entity.course.LessonType.VIDEO) {
+                                    correctedType = com.elearning.ProjetPfe.entity.course.LessonType.VIDEO;
+                                    needsFix = true;
+                                    log.warn("[AUTO-FIX] Lesson ID={} has VIDEO but type={}, correcting to VIDEO", 
+                                             lesson.getId(), lesson.getLessonType());
+                                }
+                                // Si ARTICLE existe mais type != TEXT
+                                else if (lesson.getArticleContent() != null && !lesson.getArticleContent().isBlank() 
+                                         && lesson.getLessonType() != com.elearning.ProjetPfe.entity.course.LessonType.TEXT) {
+                                    correctedType = com.elearning.ProjetPfe.entity.course.LessonType.TEXT;
+                                    needsFix = true;
+                                    log.warn("[AUTO-FIX] Lesson ID={} has ARTICLE but type={}, correcting to TEXT", 
+                                             lesson.getId(), lesson.getLessonType());
+                                }
+                                
+                                // Appliquer la correction en DB si nécessaire
+                                if (needsFix) {
+                                    lesson.setLessonType(correctedType);
+                                    // Supprimer les contenus conflictuels
+                                    if (correctedType == com.elearning.ProjetPfe.entity.course.LessonType.PDF) {
+                                        lesson.setVideoUrl(null);
+                                        lesson.setVideoSize(null);
+                                        lesson.setArticleContent(null);
+                                    } else if (correctedType == com.elearning.ProjetPfe.entity.course.LessonType.VIDEO) {
+                                        lesson.setPdfUrl(null);
+                                        lesson.setArticleContent(null);
+                                    } else if (correctedType == com.elearning.ProjetPfe.entity.course.LessonType.TEXT) {
+                                        lesson.setVideoUrl(null);
+                                        lesson.setVideoSize(null);
+                                        lesson.setPdfUrl(null);
+                                    }
+                                    lessonRepository.save(lesson);
+                                    log.info("[AUTO-FIX] Lesson ID={} corrected and saved", lesson.getId());
+                                }
+                                
+                                LessonDto lDto = toLessonDto(lesson);
+                                log.info("[STUDENT_VIEW_FRESH] Lesson ID={}, type={}, pdfUrl={}, videoUrl={}, articleContent={}", 
+                                         lesson.getId(), lesson.getLessonType(), 
+                                         lesson.getPdfUrl() != null ? "present" : "null",
+                                         lesson.getVideoUrl() != null ? "present" : "null",
+                                         lesson.getArticleContent() != null ? "present" : "null");
+                                return lDto;
+                            })
+                            .collect(Collectors.toList())
+                    );
+                    return sDto;
+                })
+                .collect(Collectors.toList())
+        );
+        return dto;
+    }
+
+    /**
      * DTO PUBLIC : même champs de base, mais les URLs de vidéo/PDF des leçons
      * non-gratuites sont masquées (null) pour les visiteurs non-inscrits.
      */
@@ -1523,7 +2042,7 @@ public class CourseService {
         dto.setVideoUrl(lesson.getVideoUrl());
         dto.setVideoSize(lesson.getVideoSize());
         dto.setPdfUrl(lesson.getPdfUrl());
-        dto.setArticleContent(lesson.getArticleContent());
+        dto.setArticleContent(normalizeArticleHtmlForDisplay(lesson.getArticleContent()));
         // Quiz associé
         quizRepository.findFirstByLessonId(lesson.getId()).ifPresent(q -> {
             dto.setHasQuiz(true);
@@ -1543,9 +2062,100 @@ public class CourseService {
         if (!lesson.getSection().getCourse().getInstructor().getId().equals(instructor.getId())) {
             throw new RuntimeException("Accès non autorisé");
         }
-        lesson.setArticleContent(content);
+
+        // ── VERSIONING : créer snapshot AVANT modification si cours publié ──
+        Course course = lesson.getSection().getCourse();
+        ensureSnapshotBeforeLessonModification(course);
+
+        lesson.setArticleContent(normalizeArticleHtmlForStorage(content));
         lesson.setLessonType(com.elearning.ProjetPfe.entity.course.LessonType.TEXT);
+        // Supprimer l'ancien contenu (vidéo et PDF) pour éviter les conflits
+        lesson.setVideoUrl(null);
+        lesson.setVideoSize(null);
+        lesson.setPdfUrl(null);
         lesson = lessonRepository.save(lesson);
         return toLessonDto(lesson);
+    }
+
+    /**
+     * Normalise le contenu HTML d'article avant stockage.
+     * Corrige les cas legacy où le HTML arrive encodé (&lt;h1&gt;...).
+     */
+    private String normalizeArticleHtmlForStorage(String rawContent) {
+        if (rawContent == null || rawContent.isBlank()) {
+            return "";
+        }
+
+        String normalized = rawContent.replace("\r\n", "\n").replace("\r", "\n").trim();
+
+        // Cas 1: contenu HTML encode complet (legacy) -> decoder.
+        if (looksLikeEscapedRichHtml(normalized) && !looksLikeStructuredHtml(normalized)) {
+            return HtmlUtils.htmlUnescape(normalized);
+        }
+
+        // Cas 2: contenu texte brut (copier/coller) -> convertir en HTML securise.
+        // Important: on echappe tout pour que les snippets <h1> restent du texte.
+        if (!looksLikeStructuredHtml(normalized)) {
+            return plainTextToHtml(normalized);
+        }
+
+        return normalized;
+    }
+
+    /**
+     * Normalise le contenu HTML pour affichage DTO.
+     * Permet de rendre correctement les articles legacy deja stockes encodes.
+     */
+    private String normalizeArticleHtmlForDisplay(String rawContent) {
+        if (rawContent == null || rawContent.isBlank()) {
+            return rawContent;
+        }
+
+        if (looksLikeEscapedRichHtml(rawContent) && !looksLikeStructuredHtml(rawContent)) {
+            return HtmlUtils.htmlUnescape(rawContent);
+        }
+
+        return rawContent;
+    }
+
+    private boolean looksLikeEscapedRichHtml(String value) {
+        String lower = value.toLowerCase();
+        return lower.contains("&lt;p")
+                || lower.contains("&lt;div")
+                || lower.contains("&lt;h1")
+                || lower.contains("&lt;h2")
+                || lower.contains("&lt;h3")
+                || lower.contains("&lt;ul")
+                || lower.contains("&lt;ol")
+                || lower.contains("&lt;li")
+                || lower.contains("&lt;blockquote")
+                || lower.contains("&lt;pre")
+                || lower.contains("&lt;span");
+    }
+
+    private boolean looksLikeStructuredHtml(String value) {
+        String trimmed = value == null ? "" : value.trim();
+        if (trimmed.isEmpty() || !trimmed.startsWith("<")) {
+            return false;
+        }
+        return trimmed.matches("(?s).*<\\s*/?\\s*[a-zA-Z][^>]*>.*");
+    }
+
+    private String plainTextToHtml(String value) {
+        String escaped = HtmlUtils.htmlEscape(value);
+        // Preserver la structure des paragraphes et les retours ligne intra-paragraphe.
+        String[] paragraphs = escaped.split("\\n\\s*\\n");
+        StringBuilder html = new StringBuilder();
+        for (String paragraph : paragraphs) {
+            String p = paragraph.trim();
+            if (p.isEmpty()) {
+                continue;
+            }
+            if (html.length() > 0) {
+                html.append('\n');
+            }
+            html.append("<p>").append(p.replace("\n", "<br>")).append("</p>");
+        }
+        return html.toString();
     }
 }

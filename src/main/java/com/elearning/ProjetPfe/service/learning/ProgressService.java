@@ -73,6 +73,9 @@ public class ProgressService {
     @Autowired
     private CertificateService certificateService;
 
+    @Autowired
+    private com.elearning.ProjetPfe.repository.learning.QuizRepository quizRepository;
+
     // ═══════════════════════════════════════════════════════════════════════
     //  Obtenir la progression sur une leçon
     // ═══════════════════════════════════════════════════════════════════════
@@ -138,6 +141,10 @@ public class ProgressService {
     /**
      * Marquer une leçon TEXT ou PDF comme terminée manuellement.
      * Appelé quand l'étudiant clique "Marquer comme terminé".
+     * 
+     * VALIDATION QUIZ OBLIGATOIRE:
+     * Si la leçon contient un quiz (hasQuiz = true), l'étudiant DOIT avoir passé
+     * le quiz avec succès avant de pouvoir marquer la leçon comme terminée.
      */
     @Transactional
     public LessonProgressDto markLessonCompleted(Long lessonId, User student) {
@@ -145,6 +152,20 @@ public class ProgressService {
                 .orElseThrow(() -> new RuntimeException("Leçon non trouvée"));
 
         Long courseId = lesson.getSection().getCourse().getId();
+
+        // ═══ VALIDATION QUIZ OBLIGATOIRE ═══
+        // Vérifier si cette leçon a un quiz associé
+        if (quizRepository.existsByLessonId(lessonId)) {
+            // Récupérer le quiz de la leçon
+            com.elearning.ProjetPfe.entity.learning.Quiz quiz = quizRepository.findFirstByLessonId(lessonId).orElse(null);
+            if (quiz != null) {
+                // Vérifier si l'étudiant a passé le quiz avec succès
+                boolean quizPassed = quizRepository.hasStudentPassedQuiz(student.getId(), quiz.getId());
+                if (!quizPassed) {
+                    throw new RuntimeException("Vous devez réussir le quiz de cette leçon avant de la marquer comme terminée.");
+                }
+            }
+        }
 
         LessonProgress progress = lessonProgressRepository
                 .findByStudentIdAndLessonId(student.getId(), lessonId)
@@ -156,6 +177,32 @@ public class ProgressService {
         if (progress.getCompletedAt() == null) {
             progress.setCompletedAt(LocalDateTime.now());
         }
+
+        progress = lessonProgressRepository.save(progress);
+        recalculateCourseProgress(student, courseId, lessonId);
+
+        return toLessonDto(progress);
+    }
+
+    /**
+     * Démarquer une leçon comme non terminée (toggle).
+     * Permet à l'étudiant de décocher une leçon marquée comme terminée.
+     */
+    @Transactional
+    public LessonProgressDto markLessonIncomplete(Long lessonId, User student) {
+        Lesson lesson = lessonRepository.findById(lessonId)
+                .orElseThrow(() -> new RuntimeException("Leçon non trouvée"));
+
+        Long courseId = lesson.getSection().getCourse().getId();
+
+        LessonProgress progress = lessonProgressRepository
+                .findByStudentIdAndLessonId(student.getId(), lessonId)
+                .orElseThrow(() -> new RuntimeException("Aucune progression trouvée pour cette leçon"));
+
+        progress.setCompleted(false);
+        progress.setCompletedAt(null);
+        // Réinitialiser watchedSeconds pour les vidéos si souhaité
+        // progress.setWatchedSeconds(0L);
 
         progress = lessonProgressRepository.save(progress);
         recalculateCourseProgress(student, courseId, lessonId);

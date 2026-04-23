@@ -190,4 +190,5 @@ public class AdminCourseController {
         String reason = body.get("reason");
         return ResponseEntity.ok(courseService.rejectPendingEdit(courseId, reason));
     }
+
 }

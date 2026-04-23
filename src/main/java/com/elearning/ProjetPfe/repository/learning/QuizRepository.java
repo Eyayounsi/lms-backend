@@ -27,4 +27,18 @@ public interface QuizRepository extends JpaRepository<Quiz, Long> {
 
     /** Quizzes de l'instructor (par lesson ou par course) */
     List<Quiz> findByLessonSectionCourseInstructorIdOrderByCreatedAtDesc(Long instructorId);
+
+    /**
+     * Vérifie si un étudiant a passé un quiz avec succès.
+     * Un quiz est considéré comme réussi si l'étudiant a au moins une tentative
+     * avec un score >= au score minimum requis (passMark).
+     */
+    @org.springframework.data.jpa.repository.Query("""
+        SELECT CASE WHEN COUNT(qa) > 0 THEN true ELSE false END
+        FROM QuizAttempt qa
+        WHERE qa.student.id = :studentId
+        AND qa.quiz.id = :quizId
+        AND qa.score >= qa.quiz.passMark
+        """)
+    boolean hasStudentPassedQuiz(Long studentId, Long quizId);
 }

@@ -118,6 +118,16 @@ public class StudentProgressController {
         return ResponseEntity.ok(progressService.markLessonCompleted(lessonId, student));
     }
 
+    // ─── LEÇON — Démarquer comme non terminée (toggle) ───────────────────
+
+    @PostMapping("/lesson/{lessonId}/incomplete")
+    public ResponseEntity<LessonProgressDto> markIncomplete(
+            @PathVariable Long lessonId,
+            Authentication authentication) {
+        User student = resolveStudent(authentication);
+        return ResponseEntity.ok(progressService.markLessonIncomplete(lessonId, student));
+    }
+
     // ─── COURS — Progression globale ─────────────────────────────────────
 
     @GetMapping("/course/{courseId}")

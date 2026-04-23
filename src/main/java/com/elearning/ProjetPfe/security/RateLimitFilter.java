@@ -13,6 +13,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
+import io.github.bucket4j.Refill;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -48,16 +49,17 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
         if (uri.startsWith("/api/auth/")) {
             bucketKey = ip + ":auth";
-            limit     = Bandwidth.simple(10, Duration.ofMinutes(1));
+            // Nouvelle API Bucket4j: classic() au lieu de simple()
+            limit = Bandwidth.classic(10, Refill.intervally(10, Duration.ofMinutes(1)));
         } else if (uri.startsWith("/api/public/chatbot/")) {
             bucketKey = ip + ":chatbot";
-            limit     = Bandwidth.simple(20, Duration.ofMinutes(1));
+            limit = Bandwidth.classic(20, Refill.intervally(20, Duration.ofMinutes(1)));
         } else if (uri.startsWith("/api/public/")) {
             bucketKey = ip + ":public";
-            limit     = Bandwidth.simple(60, Duration.ofMinutes(1));
+            limit = Bandwidth.classic(60, Refill.intervally(60, Duration.ofMinutes(1)));
         } else {
             bucketKey = ip + ":default";
-            limit     = Bandwidth.simple(120, Duration.ofMinutes(1));
+            limit = Bandwidth.classic(120, Refill.intervally(120, Duration.ofMinutes(1)));
         }
 
         Bucket bucket = buckets.computeIfAbsent(bucketKey,

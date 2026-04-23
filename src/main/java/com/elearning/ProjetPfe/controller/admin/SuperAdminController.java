@@ -104,11 +104,17 @@ public class SuperAdminController {
         if (target.getRole() == Role.SUPERADMIN) {
             return ResponseEntity.status(403).build();
         }
-        try {
-            target.setRole(Role.valueOf(role.toUpperCase()));
-        } catch (IllegalArgumentException e) {
+
+        // Règle métier: seul le passage INSTRUCTOR -> STUDENT est autorisé
+        if (target.getRole() != Role.INSTRUCTOR || !"STUDENT".equalsIgnoreCase(role)) {
             return ResponseEntity.badRequest().build();
         }
+
+        target.setRole(Role.STUDENT);
+        if (target.getSecondaryRoles() != null) {
+            target.getSecondaryRoles().remove(Role.INSTRUCTOR);
+        }
+
         userRepository.save(target);
         return ResponseEntity.ok(toDto(target));
     }
@@ -218,6 +224,9 @@ public class SuperAdminController {
         }
         try {
             Role r = Role.valueOf(role.toUpperCase());
+            if (r == Role.INSTRUCTOR) {
+                return ResponseEntity.badRequest().build();
+            }
             if (r == target.getRole()) {
                 return ResponseEntity.badRequest().build();
             }

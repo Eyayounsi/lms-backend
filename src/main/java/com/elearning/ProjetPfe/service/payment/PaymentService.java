@@ -173,10 +173,12 @@ public class PaymentService {
                                                 .setProductData(
                                                         SessionCreateParams.LineItem.PriceData.ProductData.builder()
                                                                 .setName(course.getTitle())
-                                                                .setDescription(course.getDescription() != null
-                                                                        ? course.getDescription().substring(0,
-                                                                                Math.min(course.getDescription().length(), 200))
-                                                                        : "Cours e-learning")
+                                                                .setDescription(
+                                                                        (course.getDescription() != null && !course.getDescription().trim().isEmpty())
+                                                                                ? course.getDescription().substring(0,
+                                                                                        Math.min(course.getDescription().length(), 200))
+                                                                                : "Cours e-learning - " + course.getTitle()
+                                                                )
                                                                 .build()
                                                 )
                                                 .build()
