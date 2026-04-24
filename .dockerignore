@@ -1,0 +1,13 @@
+target/
+.git/
+.gitignore
+*.log
+*.md
+.mvn/wrapper/maven-wrapper.jar
+.env
+.env.*
+!.env.example
+.idea/
+*.iml
+*.iws
+*.ipr
