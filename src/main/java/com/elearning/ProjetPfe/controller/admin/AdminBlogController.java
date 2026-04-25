@@ -85,7 +85,7 @@ public class AdminBlogController {
             return ResponseEntity.badRequest().body(Map.of("error", "Seules les images sont acceptées"));
         }
         String path = fileStorageService.storeFile(file, "blog-covers");
-        String url = "http://localhost:8081" + path;
-        return ResponseEntity.ok(Map.of("url", url));
+        // Return relative path — frontend/nginx resolves the full URL
+        return ResponseEntity.ok(Map.of("url", path));
     }
 }
