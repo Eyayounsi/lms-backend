@@ -18,10 +18,10 @@ public class EmailService {
 
     private static final Logger log = LoggerFactory.getLogger(EmailService.class);
 
-    @Autowired
+    @Autowired(required = false)
     private JavaMailSender mailSender;
 
-    @Value("${spring.mail.username}")
+    @Value("${spring.mail.username:}")
     private String from;
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -91,6 +91,10 @@ public class EmailService {
     // ═══════════════════════════════════════════════════════════════════════
 
     private void sendHtml(String to, String subject, String html) {
+        if (!isMailConfigured("sendHtml", to)) {
+            return;
+        }
+
         try {
             MimeMessage msg = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(msg, true, "UTF-8");
@@ -116,6 +120,10 @@ public class EmailService {
     // ═══════════════════════════════════════════════════════════════════════
 
     public void sendOtpEmail(String toEmail, String otpCode) {
+        if (!isMailConfigured("sendOtpEmail", toEmail)) {
+            return;
+        }
+
         SimpleMailMessage message = new SimpleMailMessage();
 
         message.setTo(toEmail);
@@ -128,7 +136,11 @@ public class EmailService {
                 "Cordialement,\n" +
                 "L'équipe E-Learning");
 
-        mailSender.send(message);
+        try {
+            mailSender.send(message);
+        } catch (Exception e) {
+            log.error("[EMAIL] Échec envoi OTP à {} : {}", toEmail, e.getMessage());
+        }
     }
 
     /**
@@ -136,10 +148,32 @@ public class EmailService {
      * Utilisée pour notifier l'instructor quand un cours est accepté/rejeté.
      */
     public void sendEmail(String toEmail, String subject, String body) {
+        if (!isMailConfigured("sendEmail", toEmail)) {
+            return;
+        }
+
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(toEmail);
         message.setSubject(subject);
         message.setText(body);
-        mailSender.send(message);
+        try {
+            mailSender.send(message);
+        } catch (Exception e) {
+            log.error("[EMAIL] Échec envoi texte à {} : {}", toEmail, e.getMessage());
+        }
+    }
+
+    private boolean isMailConfigured(String operation, String toEmail) {
+        if (mailSender == null) {
+            log.error("[EMAIL] {} impossible pour {} : JavaMailSender indisponible", operation, toEmail);
+            return false;
+        }
+
+        if (from == null || from.isBlank()) {
+            log.error("[EMAIL] {} impossible pour {} : spring.mail.username vide", operation, toEmail);
+            return false;
+        }
+
+        return true;
     }
 }

@@ -1,0 +1,32 @@
+# Dependabot - Mise à jour automatique des dépendances
+# Scanne chaque semaine et crée des PRs automatiques pour les mises à jour
+
+version: 2
+updates:
+
+  # ── Maven (Spring Boot backend) ──────────────────────────────
+  - package-ecosystem: "maven"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "java"
+    ignore:
+      # Ne pas mettre à jour Spring Boot automatiquement (breaking changes)
+      - dependency-name: "org.springframework.boot:spring-boot-starter-parent"
+        update-types: ["version-update:semver-major"]
+
+  # ── GitHub Actions ──────────────────────────────────────────
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    labels:
+      - "dependencies"
+      - "github-actions"
