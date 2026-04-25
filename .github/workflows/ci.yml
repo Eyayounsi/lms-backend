@@ -43,7 +43,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '17'
           distribution: 'temurin'
@@ -113,7 +113,7 @@ jobs:
           fetch-depth: 0  # Required for SonarCloud blame analysis
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '17'
           distribution: 'temurin'
@@ -155,7 +155,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up JDK 17 (pour le build Maven)
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '17'
           distribution: 'temurin'
