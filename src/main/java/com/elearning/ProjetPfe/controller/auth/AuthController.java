@@ -104,11 +104,16 @@ public class AuthController {
         }
     }
 
-    // ✅ NOUVEAU: Méthode Logout
     @PostMapping("/logout")
     public ResponseEntity<String> logout() {
         SecurityContextHolder.clearContext();
         return ResponseEntity.ok("Déconnexion réussie. Veuillez supprimer le token du côté client.");
+    }
+
+    @GetMapping("/check-email")
+    public ResponseEntity<?> checkEmail(@org.springframework.web.bind.annotation.RequestParam String email) {
+        boolean exists = userService.emailExists(email);
+        return ResponseEntity.ok(Map.of("exists", exists));
     }
 
     // ✅ Profil utilisateur courant — utile pour vérifier le rôle côté client

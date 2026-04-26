@@ -103,6 +103,10 @@ public class UserService {
     private MongoAuditService mongoAuditService;
 
     // 1. INSCRIPTION
+    public boolean emailExists(String email) {
+        return userRepository.existsByEmail(email);
+    }
+
     @Transactional
     public AuthResponseDto register(RegisterDto request) {
         // Vérifier si l'email existe
