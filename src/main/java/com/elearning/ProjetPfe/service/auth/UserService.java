@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import javax.crypto.Mac;
@@ -40,6 +41,7 @@ import com.elearning.ProjetPfe.dto.auth.SwitchRoleDto;
 import com.elearning.ProjetPfe.dto.auth.UpdateProfileDto;
 import com.elearning.ProjetPfe.dto.auth.UserProfileDto;
 import com.elearning.ProjetPfe.dto.auth.VerifyOtpDto;
+import com.elearning.ProjetPfe.dto.auth.VerifyRegisterOtpDto;
 import com.elearning.ProjetPfe.entity.auth.AccountStatus;
 import com.elearning.ProjetPfe.entity.auth.Role;
 import com.elearning.ProjetPfe.entity.auth.User;
@@ -105,6 +107,45 @@ public class UserService {
     // 1. INSCRIPTION
     public boolean emailExists(String email) {
         return userRepository.existsByEmail(email);
+    }
+
+    // ── Pending registrations (OTP flow) ──────────────────────────────────────
+    private static class PendingRegistration {
+        final RegisterDto dto;
+        final String otpCode;
+        final LocalDateTime expiry;
+        PendingRegistration(RegisterDto dto, String otpCode) {
+            this.dto     = dto;
+            this.otpCode = otpCode;
+            this.expiry  = LocalDateTime.now().plusMinutes(10);
+        }
+    }
+    private final ConcurrentHashMap<String, PendingRegistration> pendingRegistrations = new ConcurrentHashMap<>();
+
+    public void requestRegisterOtp(RegisterDto request) {
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new RuntimeException("Email déjà utilisé");
+        }
+        String otp = String.format("%06d", new Random().nextInt(1000000));
+        pendingRegistrations.put(request.getEmail(), new PendingRegistration(request, otp));
+        emailService.sendRegisterOtpEmail(request.getEmail(), request.getFullName(), otp);
+    }
+
+    @Transactional
+    public AuthResponseDto verifyRegisterOtp(VerifyRegisterOtpDto dto) {
+        PendingRegistration pending = pendingRegistrations.get(dto.getEmail());
+        if (pending == null) {
+            throw new RuntimeException("Aucune inscription en attente pour cet email. Recommencez.");
+        }
+        if (pending.expiry.isBefore(LocalDateTime.now())) {
+            pendingRegistrations.remove(dto.getEmail());
+            throw new RuntimeException("Code OTP expiré. Recommencez l'inscription.");
+        }
+        if (!pending.otpCode.equals(dto.getOtpCode())) {
+            throw new RuntimeException("Code OTP incorrect.");
+        }
+        pendingRegistrations.remove(dto.getEmail());
+        return register(pending.dto);
     }
 
     @Transactional

@@ -23,6 +23,7 @@ import com.elearning.ProjetPfe.dto.auth.LoginDto;
 import com.elearning.ProjetPfe.dto.auth.RegisterDto;
 import com.elearning.ProjetPfe.dto.auth.SwitchRoleDto;
 import com.elearning.ProjetPfe.dto.auth.VerifyOtpDto;
+import com.elearning.ProjetPfe.dto.auth.VerifyRegisterOtpDto;
 import com.elearning.ProjetPfe.entity.auth.User;
 import com.elearning.ProjetPfe.service.auth.UserService;
 
@@ -38,6 +39,25 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<AuthResponseDto> register(@Valid @RequestBody RegisterDto request) {
         return ResponseEntity.ok(userService.register(request));
+    }
+
+    @PostMapping("/request-register-otp")
+    public ResponseEntity<?> requestRegisterOtp(@Valid @RequestBody RegisterDto request) {
+        try {
+            userService.requestRegisterOtp(request);
+            return ResponseEntity.ok(Map.of("message", "Code OTP envoyé à " + request.getEmail()));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/verify-register-otp")
+    public ResponseEntity<?> verifyRegisterOtp(@Valid @RequestBody VerifyRegisterOtpDto dto) {
+        try {
+            return ResponseEntity.ok(userService.verifyRegisterOtp(dto));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     @PostMapping("/login")
