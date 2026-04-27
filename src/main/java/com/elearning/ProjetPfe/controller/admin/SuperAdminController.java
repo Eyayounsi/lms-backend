@@ -136,7 +136,8 @@ public class SuperAdminController {
         }
         userService.adminDeleteUser(target);
         return ResponseEntity.ok("Utilisateur supprimé avec succès.");
-    } ─────────────────────────────────────────────────────────────
+    }
+
     private AdminUserDto toDto(User u) {
         AdminUserDto dto = new AdminUserDto(
                 u.getId(), u.getFullName(), u.getEmail(), u.getPhone(),

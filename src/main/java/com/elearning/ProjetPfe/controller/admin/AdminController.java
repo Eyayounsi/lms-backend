@@ -139,7 +139,8 @@ public class AdminController {
 
         userService.adminDeleteUser(target);
         return ResponseEntity.ok("Utilisateur supprimé avec succès.");
-    } ───────────────────────────────────
+    }
+
     // PUT /api/admin/users/{id}/toggle-block
     @PutMapping("/users/{id}/toggle-block")
     public ResponseEntity<AdminUserDto> toggleBlockUser(

@@ -2088,13 +2088,15 @@ public class CourseService {
 
         String normalized = rawContent.replace("\r\n", "\n").replace("\r", "\n").trim();
 
+        // Fix double-escaped HTML entities (e.g. &amp;#x1f539; -> &#x1f539;)
+        normalized = fixDoubleEscapedEntities(normalized);
+
         // Cas 1: contenu HTML encode complet (legacy) -> decoder.
         if (looksLikeEscapedRichHtml(normalized) && !looksLikeStructuredHtml(normalized)) {
             return HtmlUtils.htmlUnescape(normalized);
         }
 
         // Cas 2: contenu texte brut (copier/coller) -> convertir en HTML securise.
-        // Important: on echappe tout pour que les snippets <h1> restent du texte.
         if (!looksLikeStructuredHtml(normalized)) {
             return plainTextToHtml(normalized);
         }
@@ -2111,11 +2113,54 @@ public class CourseService {
             return rawContent;
         }
 
+        // Cas 1: HTML encode (&lt;p&gt;...) -> decoder
         if (looksLikeEscapedRichHtml(rawContent) && !looksLikeStructuredHtml(rawContent)) {
             return HtmlUtils.htmlUnescape(rawContent);
         }
 
-        return rawContent;
+        // Fix double-escaped entities (e.g. &amp;#x1f539; -> &#x1f539;)
+        String fixed = fixDoubleEscapedEntities(rawContent);
+
+        // Cas 2: deja du HTML structure (Quill) -> retourner tel quel
+        if (looksLikeStructuredHtml(fixed)) {
+            return fixed;
+        }
+
+        // Cas 3: texte brut legacy -> wrapper en <p> SANS echapper
+        return wrapPlainTextForDisplay(fixed);
+    }
+
+    /**
+     * Enveloppe du texte brut dans des balises <p> avec <br> pour les sauts de ligne.
+     * Ne fait PAS d'echappement HTML pour preserver les entites existantes.
+     */
+    private String wrapPlainTextForDisplay(String value) {
+        String[] paragraphs = value.split("\\n\\s*\\n");
+        StringBuilder html = new StringBuilder();
+        for (String paragraph : paragraphs) {
+            String p = paragraph.trim();
+            if (p.isEmpty()) {
+                continue;
+            }
+            if (html.length() > 0) {
+                html.append('\n');
+            }
+            html.append("<p>").append(p.replace("\n", "<br>")).append("</p>");
+        }
+        return html.length() > 0 ? html.toString() : "<p>" + value + "</p>";
+    }
+
+    /**
+     * Corrige les entites HTML doublement encodees.
+     * Ex: &amp;#x1f539; -> &#x1f539;, &amp;rsquo; -> &rsquo;, &amp;amp; -> &amp;
+     */
+    private String fixDoubleEscapedEntities(String value) {
+        if (value == null) return value;
+        // &amp;#xHEX; or &amp;#DEC; (numeric entities)
+        String result = value.replaceAll("&amp;(#[xX]?[0-9a-fA-F]+;)", "&$1");
+        // &amp;name; (named entities like &amp;rsquo; &amp;eacute; &amp;hellip;)
+        result = result.replaceAll("&amp;([a-zA-Z]{2,8};)", "&$1");
+        return result;
     }
 
     private boolean looksLikeEscapedRichHtml(String value) {
@@ -2134,11 +2179,15 @@ public class CourseService {
     }
 
     private boolean looksLikeStructuredHtml(String value) {
-        String trimmed = value == null ? "" : value.trim();
-        if (trimmed.isEmpty() || !trimmed.startsWith("<")) {
+        if (value == null || value.isBlank()) {
             return false;
         }
-        return trimmed.matches("(?s).*<\\s*/?\\s*[a-zA-Z][^>]*>.*");
+        // Strip BOM and trim
+        String trimmed = value.replaceAll("^[\\uFEFF\\u00A0\\s]+", "").trim();
+        // Content is structured HTML only if it STARTS with a block-level tag.
+        // This distinguishes Quill output (<p>..., <h2>...) from plain text
+        // that happens to contain code examples like <h1>Hello</h1>.
+        return trimmed.matches("(?is)^<(p|div|h[1-6]|ul|ol|li|blockquote|pre|table|br|hr|section|article|header|footer|figure|dl|dd|dt)[\\s>/].*");
     }
 
     private String plainTextToHtml(String value) {
