@@ -128,6 +128,7 @@ public class UserService {
         }
         String otp = String.format("%06d", new Random().nextInt(1000000));
         pendingRegistrations.put(request.getEmail(), new PendingRegistration(request, otp));
+        log.info("[OTP-REGISTER] Code pour {} : {}", request.getEmail(), otp);
         emailService.sendRegisterOtpEmail(request.getEmail(), request.getFullName(), otp);
     }
 
@@ -351,8 +352,13 @@ public class UserService {
         User user = new User();
         user.setFullName(request.getFullName());
         user.setEmail(request.getEmail());
-        // Random non-usable password — this account authenticates only via Face ID
-        user.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
+        // If a password was provided, use it; otherwise set a random non-usable one (Face ID only)
+        String rawPassword = request.getPassword();
+        if (rawPassword != null && rawPassword.trim().length() >= 6) {
+            user.setPassword(passwordEncoder.encode(rawPassword.trim()));
+        } else {
+            user.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
+        }
         user.setRole(role);
         user.setAccountStatus(AccountStatus.ACTIVE);
         user.setEmailVerified(true);

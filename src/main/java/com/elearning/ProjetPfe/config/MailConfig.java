@@ -30,6 +30,9 @@ public class MailConfig {
         props.put("mail.transport.protocol", "smtp");
         props.put("mail.smtp.auth", String.valueOf(smtpAuth));
         props.put("mail.smtp.starttls.enable", String.valueOf(startTls));
+        props.put("mail.smtp.starttls.required", "true");
+        props.put("mail.smtp.ssl.trust", "smtp.gmail.com");
+        props.put("mail.smtp.ssl.protocols", "TLSv1.2");
 
         return mailSender;
     }
