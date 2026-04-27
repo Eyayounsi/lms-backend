@@ -134,11 +134,9 @@ public class SuperAdminController {
         if (target.getRole() == Role.SUPERADMIN) {
             return ResponseEntity.status(403).body("Impossible de supprimer un Super-Administrateur.");
         }
-        userRepository.delete(target);
+        userService.adminDeleteUser(target);
         return ResponseEntity.ok("Utilisateur supprimé avec succès.");
-    }
-
-    // ─── Helpers ─────────────────────────────────────────────────────────────
+    } ─────────────────────────────────────────────────────────────
     private AdminUserDto toDto(User u) {
         AdminUserDto dto = new AdminUserDto(
                 u.getId(), u.getFullName(), u.getEmail(), u.getPhone(),

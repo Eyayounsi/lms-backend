@@ -141,6 +141,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/instructor/**").hasAuthority("INSTRUCTOR")
                         // 🔒 Endpoints réservés au recruteur
                         .requestMatchers("/api/recruiter/**").hasAuthority("RECRUITER")
+                        // 🔒 Endpoints réservés à l'étudiant (et instructeur qui peut switcher)
+                        .requestMatchers("/api/student/**").hasAnyAuthority("STUDENT", "INSTRUCTOR")
                         // 🔒 Tout le reste nécessite une authentification
                         .anyRequest().authenticated()
                 )

@@ -72,7 +72,7 @@ public class UserController {
     @PutMapping("/profile")
     public ResponseEntity<UserProfileDto> updateProfile(
             @AuthenticationPrincipal User currentUser,
-            @RequestBody UpdateProfileDto request) {
+            @Valid @RequestBody UpdateProfileDto request) {
 
         UserProfileDto updated = userService.updateProfile(currentUser.getEmail(), request);
         return ResponseEntity.ok(updated);

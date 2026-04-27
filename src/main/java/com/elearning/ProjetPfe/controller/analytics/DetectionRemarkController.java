@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.elearning.ProjetPfe.entity.auth.User;
 import com.elearning.ProjetPfe.repository.auth.UserRepository;
+import com.elearning.ProjetPfe.repository.course.CourseRepository;
 import com.elearning.ProjetPfe.service.engagement.DetectionRemarkService;
 
 @RestController
@@ -22,11 +23,14 @@ public class DetectionRemarkController {
 
     private final DetectionRemarkService remarkService;
     private final UserRepository userRepository;
+    private final CourseRepository courseRepository;
 
     public DetectionRemarkController(DetectionRemarkService remarkService,
-                                     UserRepository userRepository) {
+                                     UserRepository userRepository,
+                                     CourseRepository courseRepository) {
         this.remarkService = remarkService;
         this.userRepository = userRepository;
+        this.courseRepository = courseRepository;
     }
 
     private User resolveUser(Authentication authentication) {
@@ -93,13 +97,26 @@ public class DetectionRemarkController {
     // ═══ Instructor endpoints (INSTRUCTOR role via SecurityConfig /api/instructor/**) ═══
 
     @GetMapping("/api/instructor/detection-remarks/by-course")
-    public ResponseEntity<List<Map<String, Object>>> instructorByCourse(@RequestParam Long courseId) {
+    public ResponseEntity<List<Map<String, Object>>> instructorByCourse(
+            @RequestParam Long courseId, Authentication authentication) {
+        User instructor = resolveUser(authentication);
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new RuntimeException("Cours introuvable"));
+        if (!course.getInstructor().getId().equals(instructor.getId())) {
+            return ResponseEntity.status(403).build();
+        }
         return ResponseEntity.ok(remarkService.getRemarksByCourse(courseId));
     }
 
     @GetMapping("/api/instructor/detection-remarks/by-student-course")
     public ResponseEntity<List<Map<String, Object>>> instructorByStudentAndCourse(
-            @RequestParam Long studentId, @RequestParam Long courseId) {
+            @RequestParam Long studentId, @RequestParam Long courseId, Authentication authentication) {
+        User instructor = resolveUser(authentication);
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new RuntimeException("Cours introuvable"));
+        if (!course.getInstructor().getId().equals(instructor.getId())) {
+            return ResponseEntity.status(403).build();
+        }
         return ResponseEntity.ok(remarkService.getRemarksByStudentAndCourse(studentId, courseId));
     }
 }

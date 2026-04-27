@@ -36,11 +36,20 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     // Cache IP → Bucket par catégorie (clé = "ip:type")
     private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
+    private long lastCleanup = System.currentTimeMillis();
+    private static final long CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain chain) throws ServletException, IOException {
+        // Périodiquement nettoyer les buckets obsolètes pour éviter les fuites mémoire
+        long now = System.currentTimeMillis();
+        if (now - lastCleanup > CLEANUP_INTERVAL_MS) {
+            lastCleanup = now;
+            buckets.clear();
+        }
+
         String ip  = extractClientIp(request);
         String uri = request.getRequestURI();
 

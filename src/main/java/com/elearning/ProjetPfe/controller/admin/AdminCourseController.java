@@ -148,11 +148,12 @@ public class AdminCourseController {
         return ResponseEntity.ok(courseService.adminSetPromotion(courseId, dp, endsAt));
     }
 
+    @Autowired
+    private com.elearning.ProjetPfe.repository.engagement.ReviewRepository reviewRepository;
+
     // ─── SUPPRIMER UN COMMENTAIRE (admin) ──────────────────────────────────
     @DeleteMapping("/reviews/{reviewId}")
-    public ResponseEntity<String> deleteReview(
-            @PathVariable Long reviewId,
-            @Autowired com.elearning.ProjetPfe.repository.engagement.ReviewRepository reviewRepository) {
+    public ResponseEntity<String> deleteReview(@PathVariable Long reviewId) {
         reviewRepository.deleteById(reviewId);
         return ResponseEntity.ok("Avis supprimé");
     }

@@ -71,7 +71,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                     return super.determineUser(request, wsHandler, attributes);
                 }
             })
-            .setAllowedOriginPatterns("*")  // Permettre CORS
+            .setAllowedOriginPatterns("http://localhost:*", "https://localhost:*", "https://20.19.48.7:*")  // CORS restreint
             .withSockJS();                   // Fallback HTTP si WebSocket indisponible
     }
 }

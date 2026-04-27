@@ -31,11 +31,12 @@ public class XssSanitizationFilter extends OncePerRequestFilter {
         String contentType = request.getContentType();
         boolean isMultipart = contentType != null && contentType.startsWith("multipart/");
 
-        // Ne pas sanitiser les endpoints d'auth : email + mot de passe ne contiennent pas de HTML,
-        // et le sanitiseur OWASP ne doit pas toucher les credentials.
-        boolean isAuth = request.getRequestURI().startsWith("/api/auth/");
+        // Ne pas sanitiser les endpoints d'auth ni le webhook Stripe (signature doit rester intacte)
+        String uri = request.getRequestURI();
+        boolean isAuth = uri.startsWith("/api/auth/");
+        boolean isStripeWebhook = uri.equals("/api/payment/webhook");
 
-        if (isMultipart || isAuth) {
+        if (isMultipart || isAuth || isStripeWebhook) {
             chain.doFilter(request, response);
         } else {
             chain.doFilter(new XssRequestWrapper(request), response);

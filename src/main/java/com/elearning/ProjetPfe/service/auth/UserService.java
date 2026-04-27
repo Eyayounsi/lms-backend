@@ -8,7 +8,6 @@ import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -126,7 +125,7 @@ public class UserService {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new RuntimeException("Email déjà utilisé");
         }
-        String otp = String.format("%06d", new Random().nextInt(1000000));
+        String otp = String.format("%06d", new SecureRandom().nextInt(1000000));
         pendingRegistrations.put(request.getEmail(), new PendingRegistration(request, otp));
         log.info("[OTP-REGISTER] Code pour {} : {}", request.getEmail(), otp);
         emailService.sendRegisterOtpEmail(request.getEmail(), request.getFullName(), otp);
@@ -440,10 +439,16 @@ public class UserService {
     @Transactional
     public void forgotPassword(ForgotPasswordDto request) {
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("Email non trouvé"));
+                .orElse(null);
+
+        // Toujours retourner succès pour ne pas révéler si l'email existe
+        if (user == null) {
+            log.warn("[FORGOT-PASSWORD] Tentative avec email inexistant: {}", request.getEmail());
+            return;
+        }
 
         // Générer un code OTP à 6 chiffres
-        String otpCode = String.format("%06d", new Random().nextInt(999999));
+        String otpCode = String.format("%06d", new SecureRandom().nextInt(1000000));
 
         // Sauvegarder l'OTP et son expiration (10 minutes)
         user.setOtpCode(otpCode);
@@ -453,10 +458,7 @@ public class UserService {
         // Envoyer l'OTP par email
         emailService.sendOtpEmail(user.getEmail(), otpCode);
 
-        System.out.println("==========================================");
-        System.out.println("CODE OTP ENVOYÉ: " + otpCode);
-        System.out.println("Email: " + user.getEmail());
-        System.out.println("==========================================");
+        log.info("[OTP-RESET] Code envoyé pour {}", user.getEmail());
     }
 
     // 4. VÉRIFIER OTP ET RÉINITIALISER MOT DE PASSE
@@ -666,6 +668,19 @@ public class UserService {
         wishlistItemRepository.deleteByStudentId(userId);
         reviewRepository.deleteByStudentId(userId);
 
+        userRepository.delete(user);
+    }
+
+    // 5c. SUPPRIMER COMPTE (admin/superadmin) — sans vérification mot de passe
+    @Transactional
+    public void adminDeleteUser(User user) {
+        Long userId = user.getId();
+        lessonProgressRepository.deleteByStudentId(userId);
+        courseProgressRepository.deleteByStudentId(userId);
+        enrollmentRepository.deleteByStudentId(userId);
+        cartItemRepository.deleteByStudentId(userId);
+        wishlistItemRepository.deleteByStudentId(userId);
+        reviewRepository.deleteByStudentId(userId);
         userRepository.delete(user);
     }
 

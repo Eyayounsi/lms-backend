@@ -137,11 +137,9 @@ public class AdminController {
             return ResponseEntity.status(403).body("Un admin ne peut pas supprimer un autre admin. Contactez le SUPERADMIN.");
         }
 
-        userRepository.delete(target);
+        userService.adminDeleteUser(target);
         return ResponseEntity.ok("Utilisateur supprimé avec succès.");
-    }
-
-    // ─── BLOQUER / DÉBLOQUER UN UTILISATEUR ───────────────────────────────────
+    } ───────────────────────────────────
     // PUT /api/admin/users/{id}/toggle-block
     @PutMapping("/users/{id}/toggle-block")
     public ResponseEntity<AdminUserDto> toggleBlockUser(
