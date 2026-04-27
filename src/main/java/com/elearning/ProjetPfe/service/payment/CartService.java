@@ -52,10 +52,21 @@ public class CartService {
     // ═══════════════════════════════════════════════════════════════════════
 
     public List<CartItemDto> getCart(User student) {
-        return cartItemRepository.findByStudentId(student.getId())
-                .stream()
-                .map(this::toDto)
-                .collect(Collectors.toList());
+        List<CartItem> items = cartItemRepository.findByStudentId(student.getId());
+
+        // Auto-clean: remove items for courses already purchased
+        List<CartItem> alreadyOwned = items.stream()
+                .filter(ci -> enrollmentRepository
+                        .findByStudentIdAndCourseIdAndPaymentStatus(
+                                student.getId(), ci.getCourse().getId(), PaymentStatus.PAID)
+                        .isPresent())
+                .toList();
+        if (!alreadyOwned.isEmpty()) {
+            cartItemRepository.deleteAll(alreadyOwned);
+            items.removeAll(alreadyOwned);
+        }
+
+        return items.stream().map(this::toDto).collect(Collectors.toList());
     }
 
     /** Nombre d'articles (pour le badge dans le header) */
