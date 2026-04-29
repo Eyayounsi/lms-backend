@@ -605,6 +605,9 @@ public class CourseService {
             throw new RuntimeException("Ce cours n'est pas en attente de validation");
         }
 
+        if (dto.getAction() == null) {
+            throw new RuntimeException("L'action (APPROVE ou REJECT) est obligatoire");
+        }
         String action = dto.getAction().toUpperCase();
 
         switch (action) {
@@ -1503,9 +1506,9 @@ public class CourseService {
 
     @Transactional
     public CourseResponseDto setPresetCoverImage(Long courseId, String imageName, User instructor) {
-        // On accepte only safe file names (alphanumeric, dash, dot)
-        if (!imageName.matches("[\\w\\-]+\\.(?:jpg|jpeg|png|webp)")) {
-            throw new RuntimeException("Nom d'image invalide");
+        // Validation plus souple pour les noms de fichiers (autorise points, tirets, underscores)
+        if (imageName == null || !imageName.matches("^[a-zA-Z0-9_\\-\\.]+\\.(jpg|jpeg|png|webp|svg)$")) {
+            throw new RuntimeException("Nom d'image invalide ou format non supporté : " + imageName);
         }
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new RuntimeException("Cours non trouvé"));

@@ -57,9 +57,14 @@ public class RateLimitFilter extends OncePerRequestFilter {
         } else if (uri.startsWith("/api/public/")) {
             bucketKey = ip + ":public";
             limit = Bandwidth.classic(60, Refill.intervally(60, Duration.ofMinutes(1)));
+        } else if (uri.startsWith("/ws/")) {
+            // SockJS fallbacks (xhr_streaming, info, etc.) peuvent générer beaucoup de requêtes
+            bucketKey = ip + ":ws";
+            limit = Bandwidth.classic(200, Refill.intervally(200, Duration.ofMinutes(1)));
         } else {
             bucketKey = ip + ":default";
-            limit = Bandwidth.classic(120, Refill.intervally(120, Duration.ofMinutes(1)));
+            // Augmenté de 120 à 300 pour accommoder le polling multiple (notifications + messages)
+            limit = Bandwidth.classic(300, Refill.intervally(300, Duration.ofMinutes(1)));
         }
 
         Bucket bucket = buckets.computeIfAbsent(bucketKey,
