@@ -20,4 +20,6 @@ public interface CourseQuestionRepository extends JpaRepository<CourseQuestion, 
     List<CourseQuestion> findByStudentIdOrderByCreatedAtDesc(Long studentId);
 
     long countByStudentId(Long studentId);
+
+    List<CourseQuestion> findByCourseInstructorIdOrderByCreatedAtDesc(Long instructorId);
 }

@@ -87,6 +87,37 @@ public class QaService {
                 .stream().map(this::mapQuestionToDto).collect(Collectors.toList());
     }
 
+    /** Toutes les questions des cours auxquels l'étudiant est inscrit */
+    public List<Map<String, Object>> getQuestionsForEnrolledCourses(User student) {
+        List<Long> courseIds = enrollmentRepository
+                .findByStudentIdAndPaymentStatus(student.getId(), PaymentStatus.PAID)
+                .stream()
+                .map(e -> e.getCourse().getId())
+                .collect(Collectors.toList());
+        if (courseIds.isEmpty()) return new ArrayList<>();
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Long courseId : courseIds) {
+            result.addAll(questionRepository.findByCourseIdOrderByCreatedAtDesc(courseId)
+                    .stream().map(this::mapQuestionToDto).collect(Collectors.toList()));
+        }
+        // Trier par date décroissante
+        result.sort((a, b) -> {
+            Object da = a.get("createdAt");
+            Object db = b.get("createdAt");
+            if (da instanceof Comparable && db instanceof Comparable) {
+                return ((Comparable) db).compareTo((Comparable) da);
+            }
+            return 0;
+        });
+        return result;
+    }
+
+    /** Toutes les questions sur les cours de l'instructeur connecté */
+    public List<Map<String, Object>> getQuestionsForInstructor(User instructor) {
+        return questionRepository.findByCourseInstructorIdOrderByCreatedAtDesc(instructor.getId())
+                .stream().map(this::mapQuestionToDto).collect(Collectors.toList());
+    }
+
     /** Détail d'une question avec réponses */
     public Map<String, Object> getQuestionDetail(Long questionId) {
         CourseQuestion question = questionRepository.findById(questionId)

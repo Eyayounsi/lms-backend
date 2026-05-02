@@ -81,6 +81,7 @@ public class PublicChatbotService {
 
         String businessReply = buildVisitorBusinessReply(message);
         if (businessReply != null && !businessReply.isBlank()) {
+            logVisitorInteraction(message, businessReply, "java-business-reply");
             return businessReply;
         }
 
@@ -93,11 +94,14 @@ public class PublicChatbotService {
 
         String pythonReply = callPythonService(message);
         if (pythonReply != null && !pythonReply.isBlank()) {
+            logVisitorInteraction(message, pythonReply, "python-service");
             return pythonReply;
         }
 
         if (huggingFaceToken == null || huggingFaceToken.isBlank()) {
-            return fallbackReply(message);
+            String reply = fallbackReply(message);
+            logVisitorInteraction(message, reply, "java-fallback");
+            return reply;
         }
 
         String prompt = buildPrompt(message);
@@ -127,11 +131,16 @@ public class PublicChatbotService {
             ResponseEntity<Object> response = restTemplate.exchange(endpoint, HttpMethod.POST, request, Object.class);
             String parsed = extractModelReply(response.getBody());
             if (parsed == null || parsed.isBlank()) {
-                return fallbackReply(message);
+                String reply = fallbackReply(message);
+                logVisitorInteraction(message, reply, "java-fallback");
+                return reply;
             }
+            logVisitorInteraction(message, parsed, "huggingface");
             return parsed;
         } catch (RestClientException ex) {
-            return fallbackReply(message);
+            String reply = fallbackReply(message);
+            logVisitorInteraction(message, reply, "java-fallback");
+            return reply;
         }
     }
 
@@ -144,11 +153,19 @@ public class PublicChatbotService {
     }
 
     public AiAgentResponse instructorQuiz(AiAgentRequest request) {
-        return callPythonAgent("/agents/instructor/quiz", request, true);
+        AiAgentResponse result = callPythonAgent("/agents/instructor/quiz", request, false);
+        if (result == null || result.getReply() == null || result.getReply().isBlank()) {
+            return fallbackAgentResponse(instructorQuizFallback(request), "spring-fallback", true);
+        }
+        return result;
     }
 
     public AiAgentResponse instructorPlan(AiAgentRequest request) {
-        return callPythonAgent("/agents/instructor/plan", request, true);
+        AiAgentResponse result = callPythonAgent("/agents/instructor/plan", request, false);
+        if (result == null || result.getReply() == null || result.getReply().isBlank()) {
+            return fallbackAgentResponse(instructorPlanFallback(request), "spring-fallback", true);
+        }
+        return result;
     }
 
     public AiAgentResponse instructorCopilot(AiAgentRequest request) {
@@ -199,6 +216,92 @@ public class PublicChatbotService {
             + "- Conseils sur les meilleures pratiques pédagogiques\n\n"
             + "## Prochaine étape\n"
             + "Décrivez votre besoin dans le champ texte et cliquez sur **Générer**.";
+    }
+
+    private String instructorPlanFallback(AiAgentRequest request) {
+        Map<String, Object> ctx = request != null ? request.getContext() : null;
+        String subject = request != null && request.getMessage() != null ? request.getMessage() : "Sujet";
+        // Extract subject from structured message
+        if (subject.contains("Sujet:")) {
+            String[] lines = subject.split("\n");
+            for (String line : lines) {
+                if (line.startsWith("Sujet:")) {
+                    subject = line.replace("Sujet:", "").trim();
+                    break;
+                }
+            }
+        }
+        String level = ctx != null ? String.valueOf(ctx.getOrDefault("level", "Intermédiaire")) : "Intermédiaire";
+        String duration = ctx != null ? String.valueOf(ctx.getOrDefault("duration", "4 semaines")) : "4 semaines";
+
+        return "## Plan de cours — " + subject + "\n\n"
+            + "**Niveau:** " + level + " | **Durée:** " + duration + "\n\n"
+            + "## Objectifs pédagogiques\n"
+            + "- Maîtriser les fondamentaux de " + subject + "\n"
+            + "- Appliquer les concepts à travers des exercices pratiques\n"
+            + "- Réaliser un projet démontrant la compétence acquise\n\n"
+            + "## Architecture du cours\n"
+            + "| Semaine | Module | Contenu | Type |\n"
+            + "|---|---|---|---|\n"
+            + "| 1 | Introduction | Fondamentaux " + subject + ", historique, écosystème | Vidéo + Article |\n"
+            + "| 1 | Environnement | Installation, configuration, premiers pas | TP guidé |\n"
+            + "| 2 | Concepts clés | Syntaxe, structures, patterns de base | Vidéo + Quiz |\n"
+            + "| 2 | Pratique | Exercices progressifs et mini-projets | TP noté |\n"
+            + "| 3 | Approfondissement | Concepts avancés, bonnes pratiques | Vidéo + Article |\n"
+            + "| 3 | Projet guidé | Projet étape par étape | TP encadré |\n"
+            + "| 4 | Projet final | Réalisation autonome + soutenance | Projet |\n\n"
+            + "## Stratégie d'évaluation\n"
+            + "- Quiz formatif après chaque module (5-8 questions)\n"
+            + "- TP notés : 40% de la note finale\n"
+            + "- Projet final : 60% (conception 20%, implémentation 25%, qualité 15%)\n"
+            + "- Seuil de réussite: 12/20\n\n"
+            + "## Prochaine action\n"
+            + "Créer le Module 1 dans la plateforme : 1 article introductif + 1 vidéo (8-12 min) + quiz diagnostic (5 questions).";
+    }
+
+    private String instructorQuizFallback(AiAgentRequest request) {
+        Map<String, Object> ctx = request != null ? request.getContext() : null;
+        String subject = request != null && request.getMessage() != null ? request.getMessage() : "Sujet";
+        if (subject.contains("Sujet:")) {
+            String[] lines = subject.split("\n");
+            for (String line : lines) {
+                if (line.startsWith("Sujet:")) {
+                    subject = line.replace("Sujet:", "").trim();
+                    break;
+                }
+            }
+        }
+        String level = ctx != null ? String.valueOf(ctx.getOrDefault("level", "Intermédiaire")) : "Intermédiaire";
+
+        return "## Quiz pédagogique — " + subject + "\n\n"
+            + "**Niveau:** " + level + " | **12 questions** | **Barème: /20**\n\n"
+            + "---\n\n"
+            + "### Section 1 — QCM (8 pts)\n\n"
+            + "**Q1.** Quel est le concept fondamental de " + subject + " ?\n"
+            + "- A) Option A\n"
+            + "- B) Option B\n"
+            + "- C) Option C ✅\n"
+            + "- D) Option D\n\n"
+            + "**Q2.** Parmi les affirmations suivantes sur " + subject + ", laquelle est correcte ?\n"
+            + "- A) Affirmation 1\n"
+            + "- B) Affirmation 2 ✅\n"
+            + "- C) Affirmation 3\n"
+            + "- D) Affirmation 4\n\n"
+            + "**Q3–Q6.** [4 questions supplémentaires à adapter selon le contenu exact du cours]\n\n"
+            + "### Section 2 — Vrai / Faux (6 pts)\n\n"
+            + "**Q7.** " + subject + " nécessite une connaissance préalable avancée. → **Faux**\n\n"
+            + "**Q8.** Les bonnes pratiques de " + subject + " incluent la modularité. → **Vrai**\n\n"
+            + "**Q9–Q10.** [2 questions supplémentaires]\n\n"
+            + "### Section 3 — Cas pratique (6 pts)\n\n"
+            + "**Q11.** Décrivez en 3 étapes comment implémenter [un concept clé de " + subject + "].\n\n"
+            + "**Q12.** Analysez le code/schéma suivant et identifiez les 2 erreurs.\n\n"
+            + "---\n\n"
+            + "## Corrigé & erreurs fréquentes\n"
+            + "- Erreur #1: Confusion entre [concept A] et [concept B]\n"
+            + "- Erreur #2: Oublier [étape critique]\n"
+            + "- Erreur #3: Mauvaise utilisation de [outil/pattern]\n\n"
+            + "## Prochaine action\n"
+            + "Personnaliser les questions selon le contenu exact de vos leçons et ajouter ce quiz dans la plateforme.";
     }
 
     public AiAgentResponse adminCopilot(AiAgentRequest request) {
@@ -401,6 +504,13 @@ public class PublicChatbotService {
             boolean success = reply != null && !reply.isBlank();
 
             mongoAuditService.logAiSession(sessionId, userIdentifier, model, prompt, reply, latency, success);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void logVisitorInteraction(String message, String reply, String provider) {
+        try {
+            mongoAuditService.logAiSession("visitor", "visitor", provider, message, reply, 0, reply != null && !reply.isBlank());
         } catch (Exception ignored) {
         }
     }

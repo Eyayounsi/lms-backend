@@ -67,6 +67,18 @@ public class QaController {
         return ResponseEntity.ok(qaService.getMyQuestions(getUser(auth)));
     }
 
+    /** GET /api/user/qa/enrolled-questions — Toutes les questions des cours auxquels l'étudiant est inscrit */
+    @GetMapping("/enrolled-questions")
+    public ResponseEntity<List<Map<String, Object>>> getEnrolledQuestions(Authentication auth) {
+        return ResponseEntity.ok(qaService.getQuestionsForEnrolledCourses(getUser(auth)));
+    }
+
+    /** GET /api/user/qa/instructor-questions — Toutes les questions des cours de l'instructeur */
+    @GetMapping("/instructor-questions")
+    public ResponseEntity<List<Map<String, Object>>> getInstructorQuestions(Authentication auth) {
+        return ResponseEntity.ok(qaService.getQuestionsForInstructor(getUser(auth)));
+    }
+
     /** GET /api/user/qa/questions/{questionId} — Détail d'une question */
     @GetMapping("/questions/{questionId}")
     public ResponseEntity<Map<String, Object>> getQuestionDetail(
