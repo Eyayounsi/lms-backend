@@ -147,6 +147,9 @@ jobs:
           # Secret Stripe
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
 
+          # Secret webhook Stripe
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+
           # Google OAuth Client ID
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
 
@@ -284,6 +287,7 @@ jobs:
           SPRING_MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
           SPRING_MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           FACE_SERVICE_SECRET: ${{ secrets.FACE_SERVICE_SECRET }}
