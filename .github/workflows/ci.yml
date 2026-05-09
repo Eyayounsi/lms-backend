@@ -62,17 +62,9 @@ jobs:
           - 3306:3306
 
         options: >-
-
-          # Commande pour vérifier que MySQL fonctionne
           --health-cmd="mysqladmin ping -h localhost"
-
-          # Vérification toutes les 10 secondes
           --health-interval=10s
-
-          # Timeout après 5 secondes
           --health-timeout=5s
-
-          # Réessaie 5 fois avant erreur
           --health-retries=5
 
       # Service MongoDB
@@ -86,17 +78,9 @@ jobs:
           - 27017:27017
 
         options: >-
-
-          # Commande ping MongoDB
           --health-cmd="mongosh --eval 'db.adminCommand({ping:1})'"
-
-          # Vérifie toutes les 10 sec
           --health-interval=10s
-
-          # Timeout 5 sec
           --health-timeout=5s
-
-          # Réessaie 5 fois
           --health-retries=5
 
     # Liste des étapes du job
@@ -163,6 +147,9 @@ jobs:
 
           # Secret Stripe
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+
+          # Secret webhook Stripe
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
 
           # Google OAuth Client ID
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
@@ -301,6 +288,7 @@ jobs:
           SPRING_MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
           SPRING_MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           FACE_SERVICE_SECRET: ${{ secrets.FACE_SERVICE_SECRET }}
