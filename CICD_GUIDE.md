@@ -79,7 +79,6 @@ Clique **"New repository secret"** → entre le nom EXACT et la valeur :
 | `MAIL_USERNAME` | `eyayoounsi@gmail.com` | Fichier `.env` → `MAIL_USERNAME` |
 | `MAIL_PASSWORD` | Mot de passe app Gmail (16 caractères) | Fichier `.env` → `MAIL_PASSWORD` |
 | `STRIPE_SECRET_KEY` | `sk_test_51T3lMW0b...` (clé complète) | Fichier `.env` → `STRIPE_SECRET_KEY` |
-| `STRIPE_WEBHOOK_SECRET` | `whsec_...` | Stripe Dashboard → Webhooks |
 | `GOOGLE_CLIENT_ID` | `78802609982-i414nh1k...` | Fichier `.env` → `GOOGLE_CLIENT_ID` |
 | `GOOGLE_CLIENT_SECRET` | `placeholder` *(non utilisé pour l'instant)* | Mettre `placeholder` si absent du `.env` |
 | `FACE_SERVICE_SECRET` | `lms-face-id-secret-2024` | Fichier `.env` → `FACE_SERVICE_SECRET` |
@@ -93,7 +92,7 @@ Clique **"New repository secret"** → entre le nom EXACT et la valeur :
 
 ### 3.3 Vérifier que tous les secrets sont là
 
-Après avoir tout ajouté, la liste doit montrer ces **11 secrets** (les valeurs sont masquées, c'est normal).
+Après avoir tout ajouté, la liste doit montrer ces **10 secrets** (les valeurs sont masquées, c'est normal).
 
 ---
 
