@@ -395,7 +395,7 @@ jobs:
       - name: Build and push Docker image
 
         # Action Docker officielle
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
 
         with:
 
