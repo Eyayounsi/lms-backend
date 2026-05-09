@@ -1504,7 +1504,7 @@ public class CourseService {
     @Transactional
     public CourseResponseDto setPresetCoverImage(Long courseId, String imageName, User instructor) {
         // On accepte only safe file names (alphanumeric, dash, dot)
-        if (!imageName.matches("[\\w\\-]+\\.(?:jpg|jpeg|png|webp)")) {
+        if (!imageName.matches("[\\w\\-]+\\.(?:jpg|jpeg|png|webp|svg)")) {
             throw new RuntimeException("Nom d'image invalide");
         }
         Course course = courseRepository.findById(courseId)
