@@ -394,11 +394,6 @@ jobs:
           # push:true = envoyer image vers Docker Hub
           push: true
 
-          # Tags Docker image
           tags: |
-
-            # Image versionnée
             ${{ secrets.DOCKERHUB_USERNAME }}/lms-backend:${{ steps.version.outputs.VERSION }}
-
-            # Dernière version
             ${{ secrets.DOCKERHUB_USERNAME }}/lms-backend:latest
