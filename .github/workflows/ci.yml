@@ -60,17 +60,9 @@ jobs:
 
         # Options supplémentaires Docker
         options: >-
-
-          # Commande pour vérifier que MySQL fonctionne
           --health-cmd="mysqladmin ping -h localhost"
-
-          # Vérification toutes les 10 secondes
           --health-interval=10s
-
-          # Timeout après 5 secondes
           --health-timeout=5s
-
-          # Réessaie 5 fois avant erreur
           --health-retries=5
 
       # Service MongoDB
@@ -85,17 +77,9 @@ jobs:
 
         # Vérification état MongoDB
         options: >-
-
-          # Commande ping MongoDB
           --health-cmd="mongosh --eval 'db.adminCommand({ping:1})'"
-
-          # Vérifie toutes les 10 sec
           --health-interval=10s
-
-          # Timeout 5 sec
           --health-timeout=5s
-
-          # Réessaie 5 fois
           --health-retries=5
 
     # Liste des étapes du job
