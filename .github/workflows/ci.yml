@@ -8,8 +8,11 @@ on:
   push:
 
     # branches concernées
-    # si quelqu’un push sur main ou develop → pipeline démarre
     branches: [ main, develop , dev ]
+
+    # tags de release → déclenche aussi le job Docker Build & Push
+    tags:
+      - 'v*'
 
   # pull_request = quand quelqu’un crée/modifie une PR
   pull_request:
