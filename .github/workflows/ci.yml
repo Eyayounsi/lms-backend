@@ -8,8 +8,11 @@ on:
   push:
 
     # branches concernées
-    # si quelqu’un push sur main ou develop → pipeline démarre
     branches: [ main, develop , dev ]
+
+    # tags de release → déclenche aussi le job Docker Build & Push
+    tags:
+      - 'v*'
 
   # pull_request = quand quelqu’un crée/modifie une PR
   pull_request:
@@ -58,7 +61,6 @@ jobs:
         ports:
           - 3306:3306
 
-        # Options supplémentaires Docker
         options: >-
 
           # Commande pour vérifier que MySQL fonctionne
@@ -83,7 +85,6 @@ jobs:
         ports:
           - 27017:27017
 
-        # Vérification état MongoDB
         options: >-
 
           # Commande ping MongoDB
@@ -391,7 +392,7 @@ jobs:
           # Token Docker Hub
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # Build image Docker + push
+      # Buildgithub  image Docker + push
       - name: Build and push Docker image
 
         # Action Docker officielle
@@ -405,11 +406,6 @@ jobs:
           # push:true = envoyer image vers Docker Hub
           push: true
 
-          # Tags Docker image
           tags: |
-
-            # Image versionnée
             ${{ secrets.DOCKERHUB_USERNAME }}/lms-backend:${{ steps.version.outputs.VERSION }}
-
-            # Dernière version
             ${{ secrets.DOCKERHUB_USERNAME }}/lms-backend:latest
