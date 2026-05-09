@@ -73,24 +73,26 @@ C'est ici qu'on stocke les mots de passe et tokens de façon sécurisée.
 
 Clique **"New repository secret"** → entre le nom EXACT et la valeur :
 
-| Nom du secret | Valeur | Où trouver |
-|--------------|--------|-----------|
-| `JWT_SECRET` | Ton secret JWT (chaîne longue) | Fichier `backend/lms-backend/.env` |
-| `MAIL_USERNAME` | Ton email Gmail | Fichier `.env` |
-| `MAIL_PASSWORD` | Mot de passe app Gmail | Fichier `.env` |
-| `STRIPE_SECRET_KEY` | Clé Stripe `sk_test_...` | Fichier `.env` |
-| `GOOGLE_CLIENT_ID` | ID client OAuth Google | Fichier `.env` |
-| `GOOGLE_CLIENT_SECRET` | Secret OAuth Google | Fichier `.env` |
-| `FACE_SERVICE_SECRET` | Secret face service | Fichier `.env` |
-| `SONAR_TOKEN` | Token copié à l'étape 1.3 | SonarCloud |
+| Nom du secret | Valeur à mettre | Où trouver |
+|--------------|----------------|-----------|
+| `JWT_SECRET` | `404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970` | Fichier `.env` → `JWT_SECRET` |
+| `MAIL_USERNAME` | `eyayoounsi@gmail.com` | Fichier `.env` → `MAIL_USERNAME` |
+| `MAIL_PASSWORD` | Mot de passe app Gmail (16 caractères) | Fichier `.env` → `MAIL_PASSWORD` |
+| `STRIPE_SECRET_KEY` | `sk_test_51T3lMW0b...` (clé complète) | Fichier `.env` → `STRIPE_SECRET_KEY` |
+| `GOOGLE_CLIENT_ID` | `78802609982-i414nh1k...` | Fichier `.env` → `GOOGLE_CLIENT_ID` |
+| `GOOGLE_CLIENT_SECRET` | `placeholder` *(non utilisé pour l'instant)* | Mettre `placeholder` si absent du `.env` |
+| `FACE_SERVICE_SECRET` | `lms-face-id-secret-2024` | Fichier `.env` → `FACE_SERVICE_SECRET` |
+| `SONAR_TOKEN` | Token généré sur sonarcloud.io | Étape 1.3 |
 | `DOCKERHUB_USERNAME` | Ton username Docker Hub | Docker Hub |
 | `DOCKERHUB_TOKEN` | Access token Docker Hub | Étape 2.2 |
 
 > ⚠️ Le nom du secret doit être **exactement** comme indiqué (majuscules, underscores)
+>
+> ℹ️ Les clés `GROQ_API_KEY`, `GEMINI_API_KEY`, `HF_TOKEN` ne sont **pas nécessaires** dans GitHub Secrets — elles sont utilisées uniquement par le service chatbot Docker, pas par le pipeline CI.
 
 ### 3.3 Vérifier que tous les secrets sont là
 
-Après avoir tout ajouté, la liste doit montrer ces 10 secrets (les valeurs sont masquées, c'est normal).
+Après avoir tout ajouté, la liste doit montrer ces **10 secrets** (les valeurs sont masquées, c'est normal).
 
 ---
 
