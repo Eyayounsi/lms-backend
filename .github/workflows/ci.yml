@@ -105,7 +105,7 @@ jobs:
       - name: Checkout code
 
         # Action GitHub officielle
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       # Étape : installer Java
       - name: Set up JDK 17
@@ -259,7 +259,7 @@ jobs:
       # Télécharger code GitHub
       - name: Checkout code
 
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
         with:
 
@@ -349,7 +349,7 @@ jobs:
       # Télécharger code
       - name: Checkout code
 
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       # Installer Java
       - name: Set up JDK 17 (pour le build Maven)
