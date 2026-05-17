@@ -1,7 +1,5 @@
 package com.elearning.ProjetPfe.repository.learning;
 
-import com.elearning.ProjetPfe.entity.course.Lesson;
-import com.elearning.ProjetPfe.entity.course.Course;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,6 +11,10 @@ import com.elearning.ProjetPfe.entity.learning.Quiz;
 public interface QuizRepository extends JpaRepository<Quiz, Long> {
 
     List<Quiz> findByCourseIdOrderByCreatedAtDesc(Long courseId);
+
+    void deleteByCourseId(Long courseId);
+
+    void deleteByLessonSectionCourseId(Long courseId);
 
     List<Quiz> findByCourseInstructorIdOrderByCreatedAtDesc(Long instructorId);
 

@@ -1,7 +1,5 @@
 package com.elearning.ProjetPfe.repository.payment;
 
-import com.elearning.ProjetPfe.entity.payment.Enrollment;
-import com.elearning.ProjetPfe.entity.course.Course;
 import java.util.List;
 import java.util.Optional;
 
@@ -20,6 +18,8 @@ public interface InstructorRevenueRepository extends JpaRepository<InstructorRev
 
     /** Revenu mensuel d'un instructor pour un mois donné (ex: "2026-02") */
     List<InstructorRevenue> findByInstructorIdAndRevenueMonth(Long instructorId, String revenueMonth);
+
+       void deleteByCourseId(Long courseId);
 
     /** Revenu total net d'un instructor (somme des instructorAmount) */
     @Query("SELECT COALESCE(SUM(r.instructorAmount), 0) FROM InstructorRevenue r WHERE r.instructor.id = :instructorId")

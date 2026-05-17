@@ -205,14 +205,20 @@ public class AdminController {
             return ResponseEntity.status(403).build();
         }
 
-        // Règle métier: seul le passage INSTRUCTOR -> STUDENT est autorisé
-        if (target.getRole() != Role.INSTRUCTOR || !"STUDENT".equalsIgnoreCase(role)) {
+        Role requestedRole;
+        try {
+            requestedRole = Role.valueOf(role.toUpperCase());
+        } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
         }
 
-        target.setRole(Role.STUDENT);
+        if (requestedRole == Role.ADMIN) {
+            return ResponseEntity.status(403).build();
+        }
+
+        target.setRole(requestedRole);
         if (target.getSecondaryRoles() != null) {
-            target.getSecondaryRoles().remove(Role.INSTRUCTOR);
+            target.getSecondaryRoles().clear();
         }
 
         userRepository.save(target);

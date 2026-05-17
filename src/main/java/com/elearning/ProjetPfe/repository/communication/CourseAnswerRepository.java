@@ -9,4 +9,6 @@ import com.elearning.ProjetPfe.entity.communication.CourseAnswer;
 public interface CourseAnswerRepository extends JpaRepository<CourseAnswer, Long> {
 
     long countByAuthorId(Long authorId);
+
+    void deleteByQuestionCourseId(Long courseId);
 }

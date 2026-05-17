@@ -7,4 +7,8 @@ import com.elearning.ProjetPfe.entity.learning.Choice;
 
 @Repository
 public interface ChoiceRepository extends JpaRepository<Choice, Long> {
+
+	void deleteByQuestionQuizCourseId(Long courseId);
+
+	void deleteByQuestionQuizLessonSectionCourseId(Long courseId);
 }

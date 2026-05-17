@@ -25,6 +25,8 @@ public interface CertificateRepository extends JpaRepository<Certificate, Long> 
     /** Vérifie si le certificat appartient à cet étudiant */
     boolean existsByIdAndStudentId(Long id, Long studentId);
 
+    void deleteByCourseId(Long courseId);
+
     /** Tous les certificats pour les cours d'un instructeur */
     List<Certificate> findByCourse_InstructorIdOrderByIssuedAtDesc(Long instructorId);
 

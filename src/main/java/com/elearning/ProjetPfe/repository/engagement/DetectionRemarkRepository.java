@@ -14,6 +14,8 @@ public interface DetectionRemarkRepository extends JpaRepository<DetectionRemark
 
     List<DetectionRemark> findByCourseIdOrderByDetectedAtDesc(Long courseId);
 
+    void deleteByCourseId(Long courseId);
+
     List<DetectionRemark> findByStudentIdOrderByDetectedAtDesc(Long studentId);
 
     long countByStudentIdAndCourseId(Long studentId, Long courseId);

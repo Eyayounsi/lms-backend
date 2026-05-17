@@ -37,16 +37,26 @@ import com.elearning.ProjetPfe.entity.auth.User;
 import com.elearning.ProjetPfe.entity.auth.Role;
 import com.elearning.ProjetPfe.repository.auth.UserRepository;
 import com.elearning.ProjetPfe.repository.course.CategoryRepository;
+import com.elearning.ProjetPfe.repository.communication.CourseAnswerRepository;
+import com.elearning.ProjetPfe.repository.communication.CourseQuestionRepository;
 import com.elearning.ProjetPfe.repository.payment.CartItemRepository;
+import com.elearning.ProjetPfe.repository.learning.ChoiceRepository;
 import com.elearning.ProjetPfe.repository.learning.CourseProgressRepository;
 import com.elearning.ProjetPfe.repository.course.CourseRepository;
+import com.elearning.ProjetPfe.repository.engagement.DetectionRemarkRepository;
+import com.elearning.ProjetPfe.repository.learning.CertificateRepository;
 import com.elearning.ProjetPfe.repository.payment.EnrollmentRepository;
 import com.elearning.ProjetPfe.repository.learning.LessonProgressRepository;
+import com.elearning.ProjetPfe.repository.learning.NoteRepository;
+import com.elearning.ProjetPfe.repository.learning.QuestionRepository;
+import com.elearning.ProjetPfe.repository.learning.QuizAttemptRepository;
 import com.elearning.ProjetPfe.repository.course.LessonRepository;
 import com.elearning.ProjetPfe.repository.course.ResourceRepository;
 import com.elearning.ProjetPfe.repository.engagement.ReviewRepository;
 import com.elearning.ProjetPfe.repository.course.SectionRepository;
+import com.elearning.ProjetPfe.repository.payment.InstructorRevenueRepository;
 import com.elearning.ProjetPfe.repository.payment.WishlistItemRepository;
+import com.elearning.ProjetPfe.repository.learning.AttemptAnswerRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -98,6 +108,36 @@ public class CourseService {
 
     @Autowired
     private ResourceRepository resourceRepository;
+
+    @Autowired
+    private CourseAnswerRepository courseAnswerRepository;
+
+    @Autowired
+    private CourseQuestionRepository courseQuestionRepository;
+
+    @Autowired
+    private DetectionRemarkRepository detectionRemarkRepository;
+
+    @Autowired
+    private CertificateRepository certificateRepository;
+
+    @Autowired
+    private ChoiceRepository choiceRepository;
+
+    @Autowired
+    private NoteRepository noteRepository;
+
+    @Autowired
+    private QuestionRepository questionRepository;
+
+    @Autowired
+    private AttemptAnswerRepository attemptAnswerRepository;
+
+    @Autowired
+    private QuizAttemptRepository quizAttemptRepository;
+
+    @Autowired
+    private InstructorRevenueRepository instructorRevenueRepository;
 
     @Autowired
     private EmailService emailService;
@@ -1058,19 +1098,48 @@ public class CourseService {
         courseRepository.findById(courseId)
                 .orElseThrow(() -> new RuntimeException("Cours non trouvé"));
 
-        // 1) Supprimer les progressions de leçons (FK via lesson → section → course)
+        // 1) Supprimer les réponses de quiz (FK -> quiz_attempts)
+        attemptAnswerRepository.deleteByAttemptQuizLessonSectionCourseId(courseId);
+        attemptAnswerRepository.deleteByAttemptQuizCourseId(courseId);
+        // 2) Supprimer les tentatives de quiz liées au cours
+        quizAttemptRepository.deleteByQuizLessonSectionCourseId(courseId);
+        quizAttemptRepository.deleteByQuizCourseId(courseId);
+        // 3) Supprimer les choix des questions
+        choiceRepository.deleteByQuestionQuizLessonSectionCourseId(courseId);
+        choiceRepository.deleteByQuestionQuizCourseId(courseId);
+        // 4) Supprimer les questions des quizzes
+        questionRepository.deleteByQuizLessonSectionCourseId(courseId);
+        questionRepository.deleteByQuizCourseId(courseId);
+        // 5) Supprimer les quizzes liés au cours
+        quizRepository.deleteByLessonSectionCourseId(courseId);
+        quizRepository.deleteByCourseId(courseId);
+        // 6) Supprimer les ressources de leçons
+        resourceRepository.deleteAllByLessonSectionCourseId(courseId);
+        // 7) Supprimer les réponses aux questions Q&A
+        courseAnswerRepository.deleteByQuestionCourseId(courseId);
+        // 8) Supprimer les questions Q&A de cours
+        courseQuestionRepository.deleteByCourseId(courseId);
+        // 9) Supprimer les remarques de détection
+        detectionRemarkRepository.deleteByCourseId(courseId);
+        // 10) Supprimer les revenus instructor liés
+        instructorRevenueRepository.deleteByCourseId(courseId);
+        // 11) Supprimer les certificats
+        certificateRepository.deleteByCourseId(courseId);
+        // 12) Supprimer les notes
+        noteRepository.deleteByCourseId(courseId);
+        // 13) Supprimer les progressions de leçons (FK via lesson → section → course)
         lessonProgressRepository.deleteByCourseId(courseId);
-        // 2) Supprimer les progressions de cours
+        // 14) Supprimer les progressions de cours
         courseProgressRepository.deleteByCourseId(courseId);
-        // 3) Supprimer les avis
+        // 15) Supprimer les avis
         reviewRepository.deleteByCourseId(courseId);
-        // 4) Supprimer les éléments de panier
+        // 16) Supprimer les éléments de panier
         cartItemRepository.deleteByCourseId(courseId);
-        // 5) Supprimer les favoris
+        // 17) Supprimer les favoris
         wishlistItemRepository.deleteByCourseId(courseId);
-        // 6) Supprimer les inscriptions
+        // 18) Supprimer les inscriptions
         enrollmentRepository.deleteByCourseId(courseId);
-        // 7) Supprimer le cours (sections + leçons + ressources cascadées)
+        // 19) Supprimer le cours (sections + leçons + ressources cascadées)
         courseRepository.deleteById(courseId);
     }
 

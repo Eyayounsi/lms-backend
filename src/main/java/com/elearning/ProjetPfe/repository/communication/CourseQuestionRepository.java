@@ -13,6 +13,8 @@ public interface CourseQuestionRepository extends JpaRepository<CourseQuestion, 
 
     List<CourseQuestion> findByCourseIdOrderByCreatedAtDesc(Long courseId);
 
+    void deleteByCourseId(Long courseId);
+
     List<CourseQuestion> findByLessonIdOrderByCreatedAtDesc(Long lessonId);
 
     Optional<CourseQuestion> findByIdAndStudentId(Long id, Long studentId);

@@ -13,4 +13,8 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
     List<Question> findByQuizIdOrderByOrderIndexAsc(Long quizId);
 
     long countByQuizId(Long quizId);
+
+    void deleteByQuizCourseId(Long courseId);
+
+    void deleteByQuizLessonSectionCourseId(Long courseId);
 }

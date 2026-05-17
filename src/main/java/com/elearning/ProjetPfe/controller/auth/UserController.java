@@ -32,6 +32,7 @@ import com.elearning.ProjetPfe.entity.course.CourseStatus;
 import com.elearning.ProjetPfe.entity.payment.PaymentStatus;
 import com.elearning.ProjetPfe.repository.auth.UserRepository;
 import com.elearning.ProjetPfe.repository.course.CourseRepository;
+import com.elearning.ProjetPfe.repository.course.LessonRepository;
 import com.elearning.ProjetPfe.repository.engagement.ReviewRepository;
 import com.elearning.ProjetPfe.repository.payment.EnrollmentRepository;
 import com.elearning.ProjetPfe.service.auth.UserService;
@@ -52,6 +53,7 @@ public class UserController {
     @Autowired private FileStorageService fileStorageService;
     @Autowired private CourseService courseService;
     @Autowired private CourseRepository courseRepository;
+    @Autowired private LessonRepository lessonRepository;
     @Autowired private EnrollmentRepository enrollmentRepository;
     @Autowired private ReviewRepository reviewRepository;
 
@@ -182,12 +184,12 @@ public class UserController {
         User instructor = userRepository.findById(instructorId)
                 .orElseThrow(() -> new RuntimeException("Instructeur introuvable"));
 
-        if (instructor.getRole() != Role.INSTRUCTOR) {
+        List<Course> courses = courseRepository.findByInstructorIdAndStatus(instructorId, CourseStatus.PUBLISHED);
+
+        if (!instructor.hasRole(Role.INSTRUCTOR) && courses.isEmpty()) {
             throw new RuntimeException("Cet utilisateur n'est pas un instructeur");
         }
 
-        // Cours publiés
-        List<Course> courses = courseRepository.findByInstructorIdAndStatus(instructorId, CourseStatus.PUBLISHED);
         List<Map<String, Object>> courseDtos = courses.stream().map(c -> {
             Map<String, Object> cm = new LinkedHashMap<>();
             cm.put("id", c.getId());
@@ -200,7 +202,7 @@ public class UserController {
             long studentCount = enrollmentRepository.countByCourseIdAndPaymentStatus(c.getId(), PaymentStatus.PAID);
             cm.put("studentCount", studentCount);
             // Compter les leçons
-            long lessonCount = c.getSections().stream().mapToLong(s -> s.getLessons().size()).sum();
+            long lessonCount = lessonRepository.countBySectionCourseId(c.getId());
             cm.put("lessonCount", lessonCount);
             return cm;
         }).collect(Collectors.toList());
@@ -210,9 +212,8 @@ public class UserController {
                 .mapToLong(c -> enrollmentRepository.countByCourseIdAndPaymentStatus(c.getId(), PaymentStatus.PAID))
                 .sum();
         long totalLessons = courses.stream()
-                .flatMap(c -> c.getSections().stream())
-                .mapToLong(s -> s.getLessons().size())
-                .sum();
+            .mapToLong(c -> lessonRepository.countBySectionCourseId(c.getId()))
+            .sum();
         long totalReviews = courses.stream()
                 .mapToLong(c -> reviewRepository.countByCourseId(c.getId()))
                 .sum();

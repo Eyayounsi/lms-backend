@@ -1,6 +1,5 @@
 package com.elearning.ProjetPfe.repository.learning;
 
-import com.elearning.ProjetPfe.entity.learning.Quiz;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -20,6 +19,10 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Long> 
     long countByStudentIdAndQuizId(Long studentId, Long quizId);
 
     List<QuizAttempt> findByQuizCourseIdOrderByFinishedAtDesc(Long courseId);
+
+    void deleteByQuizCourseId(Long courseId);
+
+    void deleteByQuizLessonSectionCourseId(Long courseId);
 
     /** Nombre de quiz distincts réussis par un étudiant */
     @Query("SELECT COUNT(DISTINCT qa.quiz.id) FROM QuizAttempt qa WHERE qa.student.id = :studentId AND qa.passed = true")
