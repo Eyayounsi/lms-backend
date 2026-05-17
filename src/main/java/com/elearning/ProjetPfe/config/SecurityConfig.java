@@ -15,6 +15,7 @@ import org.springframework.security.authentication.dao.DaoAuthenticationProvider
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -112,6 +113,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // 🔓 Preflight CORS (OPTIONS) : toujours autoriser
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        // 🔓 Endpoint d'erreur Spring Boot (retourner 404 au lieu de 401 pour ressources manquantes)
+                        .requestMatchers("/error", "/error/**").permitAll()
                         // 🔓 Swagger UI — documentation API
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                         // 🔓 Endpoints publics (authentification)
@@ -174,6 +177,15 @@ public class SecurityConfig {
                 .addFilterAfter(accessLogFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    /**
+     * Bypass complet du filtre de sécurité pour les fichiers statiques uploadés.
+     * Évite le 401 quand un fichier n'existe pas (renvoie 404 correctement).
+     */
+    @Bean
+    public WebSecurityCustomizer webSecurityCustomizer() {
+        return (web) -> web.ignoring().requestMatchers("/uploads/**");
     }
 
     @Bean
