@@ -1,5 +1,6 @@
 package com.elearning.ProjetPfe.controller.admin;
 
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -105,14 +106,37 @@ public class SuperAdminController {
             return ResponseEntity.status(403).build();
         }
 
-        // Règle métier: seul le passage INSTRUCTOR -> STUDENT est autorisé
-        if (target.getRole() != Role.INSTRUCTOR || !"STUDENT".equalsIgnoreCase(role)) {
+        // Règle métier: INSTRUCTOR → STUDENT seulement (démotion)
+        // STUDENT → INSTRUCTOR seulement si ancien INSTRUCTOR (tracking via secondaryRoles)
+        Role requestedRole;
+        try {
+            requestedRole = Role.valueOf(role.toUpperCase());
+        } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
         }
 
-        target.setRole(Role.STUDENT);
-        if (target.getSecondaryRoles() != null) {
+        boolean isInstructorToStudent = target.getRole() == Role.INSTRUCTOR && requestedRole == Role.STUDENT;
+        boolean isStudentToInstructor = target.getRole() == Role.STUDENT && requestedRole == Role.INSTRUCTOR;
+
+        if (isInstructorToStudent) {
+            // ✅ Démotion autorisée : INSTRUCTOR → STUDENT
+            target.setRole(requestedRole);
+            if (target.getSecondaryRoles() == null) {
+                target.setSecondaryRoles(new HashSet<>());
+            }
+            // Tracker qu'il était INSTRUCTOR via rôles secondaires
+            target.getSecondaryRoles().add(Role.INSTRUCTOR);
+            target.getSecondaryRoles().remove(Role.STUDENT);
+        } else if (isStudentToInstructor) {
+            // ✅ Remise STUDENT → INSTRUCTOR autorisée seulement si ancien INSTRUCTOR
+            if (target.getSecondaryRoles() == null || !target.getSecondaryRoles().contains(Role.INSTRUCTOR)) {
+                return ResponseEntity.badRequest().build(); // ❌ Pas ancien instructor
+            }
+            target.setRole(requestedRole);
+            // Retirer du tracking (retour à son rôle historique)
             target.getSecondaryRoles().remove(Role.INSTRUCTOR);
+        } else {
+            return ResponseEntity.badRequest().build(); // ❌ Transition non autorisée
         }
 
         userRepository.save(target);

@@ -1507,6 +1507,21 @@ public class CourseService {
         return toResponseDto(course);
     }
 
+    /**
+     * Voir un cours en vérifiant que l'instructeur en est le propriétaire.
+     * Lève 403 si le cours appartient à un autre instructeur.
+     */
+    public CourseResponseDto getInstructorOwnedCourse(Long courseId, User instructor) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new RuntimeException("Cours non trouvé"));
+        if (!course.getInstructor().getId().equals(instructor.getId())) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.FORBIDDEN,
+                    "Accès refusé : ce cours ne vous appartient pas");
+        }
+        return toResponseDto(course);
+    }
+
     // ═══════════════════════════════════════════════════════════════════════
     //  EMAILS
     // ═══════════════════════════════════════════════════════════════════════
@@ -2075,6 +2090,10 @@ public class CourseService {
                         if (!lesson.isFree()) {
                             ld.setVideoUrl(null);
                             ld.setPdfUrl(null);
+                            ld.setArticleContent(null);
+                            ld.setHasQuiz(false);
+                            ld.setQuizId(null);
+                            ld.setQuizTitle(null);
                         }
                         return ld;
                     })

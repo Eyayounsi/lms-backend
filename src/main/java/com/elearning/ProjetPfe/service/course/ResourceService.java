@@ -25,8 +25,13 @@ public class ResourceService {
     @Autowired
     private LessonRepository lessonRepository;
 
-    /** Récupère toutes les ressources d'une leçon */
-    public List<ResourceDto> getByLesson(Long lessonId) {
+    /** Récupère toutes les ressources d'une leçon (vérification ownership) */
+    public List<ResourceDto> getByLesson(Long lessonId, User instructor) {
+        Lesson lesson = lessonRepository.findById(lessonId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Leçon introuvable"));
+        if (!lesson.getSection().getCourse().getInstructor().getId().equals(instructor.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Accès refusé");
+        }
         return resourceRepository.findByLessonId(lessonId)
                 .stream()
                 .map(this::toDto)

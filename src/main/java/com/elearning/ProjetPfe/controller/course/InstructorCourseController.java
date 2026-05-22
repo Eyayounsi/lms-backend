@@ -101,8 +101,10 @@ public class InstructorCourseController {
     // ─── VOIR UN COURS ───────────────────────────────────────────────────
     // GET /api/instructor/courses/5
     @GetMapping("/{courseId}")
-    public ResponseEntity<CourseResponseDto> getCourse(@PathVariable Long courseId) {
-        return ResponseEntity.ok(courseService.getCourseById(courseId));
+    public ResponseEntity<CourseResponseDto> getCourse(
+            @PathVariable Long courseId,
+            @AuthenticationPrincipal User instructor) {
+        return ResponseEntity.ok(courseService.getInstructorOwnedCourse(courseId, instructor));
     }
 
     // ─── AJOUTER une section ─────────────────────────────────────────────
@@ -191,8 +193,9 @@ public class InstructorCourseController {
     // GET /api/instructor/courses/lessons/10/resources
     @GetMapping("/lessons/{lessonId}/resources")
     public ResponseEntity<List<ResourceDto>> getResources(
-            @PathVariable Long lessonId) {
-        return ResponseEntity.ok(resourceService.getByLesson(lessonId));
+            @PathVariable Long lessonId,
+            @AuthenticationPrincipal User instructor) {
+        return ResponseEntity.ok(resourceService.getByLesson(lessonId, instructor));
     }
 
     // POST /api/instructor/courses/lessons/10/resources
