@@ -1,4 +1,4 @@
--- =================================================================
+--- =================================================================
 -- MIGRATION: Corriger tous les chemins d'images de couverture mal formatés
 -- Objectif: Normaliser tous les chemins vers le format /uploads/covers/uuid.ext
 -- Date: 2026-04-09
