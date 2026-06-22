@@ -96,7 +96,7 @@ jobs:
       - name: Set up JDK 17
 
         # Action officielle setup-java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
 
         # Paramètres de l’action
         with:
@@ -259,7 +259,7 @@ jobs:
       # Installer Java 17
       - name: Set up JDK 17
 
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
 
         with:
           java-version: '17'
@@ -343,7 +343,7 @@ jobs:
       # Installer Java
       - name: Set up JDK 17 (pour le build Maven)
 
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
 
         with:
           java-version: '17'
